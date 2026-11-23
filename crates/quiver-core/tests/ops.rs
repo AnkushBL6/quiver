@@ -549,7 +549,11 @@ fn my_skills_folder_cannot_overlap_agent_folders() {
 fn only_enabled_claude_plugins_count() {
     let h = Home::new();
     for p in ["on", "off"] {
-        h.skill(&format!("plugcache/{p}/skills/{p}-skill"), &format!("{p}-skill"), "p");
+        h.skill(
+            &format!("plugcache/{p}/skills/{p}-skill"),
+            &format!("{p}-skill"),
+            "p",
+        );
     }
     let manifest = format!(
         r#"{{"version":2,"plugins":{{"on@market":[{{"scope":"user","installPath":"{0}/plugcache/on"}}],"off@market":[{{"scope":"user","installPath":"{0}/plugcache/off"}}]}}}}"#,
