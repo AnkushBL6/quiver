@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://quiver-five-gamma.vercel.app">Website</a> ·
+  <a href="https://getquiver.vercel.app">Website</a> ·
   <a href="https://github.com/AnkushBL6/quiver/releases/latest">Download for macOS</a> ·
   <a href="#cli">CLI</a> ·
   <a href="#supported-agents">Supported agents</a> ·
