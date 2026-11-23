@@ -56,9 +56,6 @@ pub fn normalize(path: &Path) -> PathBuf {
 
 /// Component-wise `starts_with`, case-insensitive on Windows (NTFS is, by default).
 pub fn starts_with(path: &Path, base: &Path) -> bool {
-    if path.starts_with(base) {
-        return true;
-    }
     #[cfg(windows)]
     {
         let lower = |p: &Path| {
@@ -71,7 +68,7 @@ pub fn starts_with(path: &Path, base: &Path) -> bool {
     }
     #[cfg(not(windows))]
     {
-        false
+        path.starts_with(base)
     }
 }
 

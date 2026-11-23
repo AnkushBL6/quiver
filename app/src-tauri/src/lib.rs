@@ -12,6 +12,7 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 
 mod icon;
+mod shell;
 
 struct AppState {
     quiver: RwLock<Quiver>,
@@ -329,7 +330,9 @@ async fn agent_icon(app: AppHandle, agent_id: String) -> Res<Option<String>> {
 fn guard_path(st: &AppState, path: &str) -> Res<PathBuf> {
     let p = PathBuf::from(path);
     let home = q(st).env.home;
-    if !p.starts_with(&home) {
+    if !fsutil::starts_with(&p, &home)
+        && !fsutil::starts_with(&fsutil::normalize(&p), &fsutil::normalize(&home))
+    {
         return Err("path is outside your home folder".into());
     }
     Ok(p)
@@ -344,12 +347,7 @@ async fn reveal(app: AppHandle, path: String) -> Res<()> {
         } else {
             p.parent().map(PathBuf::from).unwrap_or(p)
         };
-        std::process::Command::new("open")
-            .arg("-R")
-            .arg(target)
-            .status()
-            .map_err(err)?;
-        Ok(())
+        shell::reveal(&target)
     })
     .await
 }
@@ -359,18 +357,10 @@ async fn open_path(app: AppHandle, path: String) -> Res<()> {
     blocking(&app, move |st| {
         // Web links open in the default browser; files must live in the home folder.
         if path.starts_with("https://") || path.starts_with("http://") {
-            std::process::Command::new("open")
-                .arg(&path)
-                .status()
-                .map_err(err)?;
-            return Ok(());
+            return shell::open(path.as_ref());
         }
         let p = guard_path(st, &path)?;
-        std::process::Command::new("open")
-            .arg(p)
-            .status()
-            .map_err(err)?;
-        Ok(())
+        shell::open(p.as_os_str())
     })
     .await
 }
