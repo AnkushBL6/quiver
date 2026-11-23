@@ -3,7 +3,7 @@ import { FolderOpen, KeyRound, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { api, errorMessage, isTauri, pickDirectory, pickSource } from "../lib/api";
 import type { Settings } from "../lib/types";
-import { cx, tildify } from "../lib/ui";
+import { cx, isWindows, secretStore, tildify } from "../lib/ui";
 import { useActions, useData } from "../state/store";
 import { AgentAvatar, GitHubMark, Logo } from "../components/identity";
 import { Button, Checkbox, Segmented, Select, Skeleton, Switch, TextField, Toolbar, ToolbarTitle } from "../components/ui";
@@ -217,7 +217,7 @@ function CustomAgents({ settings, save }: { settings: Settings; save: (s: Settin
 }
 
 const TOKEN_SOURCE: Record<string, string> = {
-  keychain: "Using the token saved in your macOS Keychain.",
+  keychain: `Using the token saved in your ${isWindows ? "Windows Credential Manager" : "macOS Keychain"}.`,
   env: "Using GITHUB_TOKEN from the environment.",
   gh: "Using your GitHub CLI (gh) login.",
 };
@@ -234,7 +234,7 @@ function GitHubToken({ settings }: { settings: Settings }) {
     try {
       setSettings(await api.setGithubToken(value));
       setToken("");
-      toast.success(value ? "Token saved to Keychain" : "Token removed");
+      toast.success(value ? `Token saved to ${secretStore}` : "Token removed");
     } catch (e) {
       toast.error("Couldn't save the token", { description: errorMessage(e) });
     }
@@ -255,7 +255,7 @@ function GitHubToken({ settings }: { settings: Settings }) {
               variant="dangerGhost"
               className="ml-auto"
               onClick={async () => {
-                if (await confirm({ title: "Remove the GitHub token?", message: "It's deleted from your Keychain.", confirmLabel: "Remove", destructive: true }))
+                if (await confirm({ title: "Remove the GitHub token?", message: `It's deleted from your ${secretStore}.`, confirmLabel: "Remove", destructive: true }))
                   void saveToken(null);
               }}
             >
@@ -284,7 +284,7 @@ function GitHubToken({ settings }: { settings: Settings }) {
             />
           </div>
           <Button type="submit" variant="secondary" disabled={!token.trim()} loading={busy}>
-            Save to Keychain
+            Save to {secretStore}
           </Button>
         </form>
       </div>

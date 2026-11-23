@@ -230,6 +230,22 @@ html.browser body {
   background: var(--q-window-bg);
 }
 
+/*
+ * Windows: an opaque window with its normal title bar and frame, so there is no
+ * transparent page to show vibrancy through. Paint the window and sidebar ourselves
+ * and use the system UI font. (In a browser on Windows the demo keeps the Mac look.)
+ */
+html.tauri.win body {
+  background: var(--q-window-bg);
+}
+html.win {
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+}
+/* Tailwind inlines the font list into `.font-sans`, so it needs the override spelled out. */
+html.win .font-sans {
+  font-family: var(--font-sans);
+}
+
 .selectable,
 .selectable * {
   user-select: text;
@@ -294,7 +310,8 @@ button {
 .sidebar {
   background: transparent;
 }
-html.browser .sidebar {
+html.browser .sidebar,
+html.tauri.win .sidebar {
   /* No backdrop-filter: there's nothing behind the page to blur, and it causes paint glitches. */
   background: var(--q-sidebar-fallback);
 }

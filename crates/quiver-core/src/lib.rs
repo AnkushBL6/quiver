@@ -2,7 +2,8 @@
 //!
 //! Skills live once in the canonical store (`~/.agents/skills`, the location
 //! shared with the `skills` CLI and read natively by Codex, Cline, Warp, Zed,
-//! Pi and others). Every other agent gets a symlink in its own skills folder.
+//! Pi and others). Every other agent gets a link in its own skills folder: a
+//! symlink on macOS and Linux, a junction on Windows (see [`fsutil`]).
 
 pub mod agents;
 pub mod env;
@@ -11,6 +12,7 @@ pub mod github;
 mod mine;
 pub mod model;
 mod ops;
+pub mod proc;
 pub mod scan;
 pub mod search;
 pub mod skill;

@@ -33,6 +33,7 @@ import type {
   UpdateInfo,
 } from "./types";
 import { REGISTRY } from "./mockRegistry";
+import { fileManager } from "./ui";
 import {
   DIRECTORY,
   HOME,
@@ -1201,7 +1202,7 @@ export async function handle(cmd: string, a: A): Promise<unknown> {
     }
     case "reveal":
       await latency(30, 60);
-      toast(`Reveal in Finder`, { description: tildify(str(a, "path")) });
+      toast(`Reveal in ${fileManager}`, { description: tildify(str(a, "path")) });
       return null;
     case "open_path":
       await latency(30, 60);

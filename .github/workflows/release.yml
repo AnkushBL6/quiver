@@ -61,3 +61,48 @@ jobs:
           gh release upload "${{ github.ref_name }}" quiver-cli-macos-universal.tar.gz --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  windows:
+    runs-on: windows-latest
+    # Both jobs attach to the same draft release; the macOS job goes first so they
+    # never race to create it. A failed macOS build doesn't block this one.
+    needs: [macos]
+    if: ${{ !cancelled() }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-windows
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.0.3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: app
+      # NSIS installer (Quiver_<version>_x64-setup.exe). Not code-signed: Windows
+      # SmartScreen will warn on first run until the app has reputation or is signed.
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: app
+          args: --bundles nsis
+          tagName: ${{ github.ref_name }}
+          releaseName: Quiver ${{ github.ref_name }}
+          releaseDraft: true
+      - name: Build CLI and upload stable-named assets
+        shell: pwsh
+        run: |
+          cargo build --release -p quiver-cli
+          Compress-Archive -Path target/release/quiver.exe -DestinationPath quiver-cli-windows-x64.zip
+          # A version-less copy of the installer so https://github.com/<repo>/releases/latest/download/... keeps working.
+          $setup = Get-ChildItem target/release/bundle/nsis -Filter '*-setup.exe' | Select-Object -First 1
+          Copy-Item $setup.FullName Quiver-windows-x64-setup.exe
+          gh release upload "${{ github.ref_name }}" quiver-cli-windows-x64.zip Quiver-windows-x64-setup.exe --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

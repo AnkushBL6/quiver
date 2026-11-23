@@ -26,9 +26,7 @@ pub struct Env {
 impl Env {
     /// The real environment of the current process.
     pub fn system() -> Self {
-        let home = std::env::var_os("HOME")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from("/"));
+        let home = system_home();
         let mut vars = HashMap::new();
         for key in HOME_VARS.iter().map(|(k, _)| *k).chain([
             "XDG_CONFIG_HOME",
@@ -36,6 +34,13 @@ impl Env {
             "GITHUB_TOKEN",
             "GH_TOKEN",
             "PATH",
+            // Windows: where tools and editors install, and which extensions run.
+            "PATHEXT",
+            "APPDATA",
+            "LOCALAPPDATA",
+            "ProgramFiles",
+            "ProgramFiles(x86)",
+            "SystemRoot",
         ]) {
             if let Ok(v) = std::env::var(key)
                 && !v.trim().is_empty()
@@ -76,7 +81,12 @@ impl Env {
     }
 
     /// Expand a registry path template: `~`, `{XDG_CONFIG}` and `{VAR}` home overrides.
+    /// Templates are written with `/`; on Windows the result uses native separators.
     pub fn expand(&self, template: &str) -> PathBuf {
+        native(self.expand_raw(template))
+    }
+
+    fn expand_raw(&self, template: &str) -> PathBuf {
         let mut s = template.to_string();
         if s.contains("{XDG_CONFIG}") {
             s = s.replace("{XDG_CONFIG}", &self.xdg_config().to_string_lossy());
@@ -97,6 +107,10 @@ impl Env {
         if let Some(rest) = s.strip_prefix("~/") {
             return self.home.join(rest);
         }
+        #[cfg(windows)]
+        if let Some(rest) = s.strip_prefix("~\\") {
+            return self.home.join(rest);
+        }
         PathBuf::from(s)
     }
 
@@ -109,12 +123,79 @@ impl Env {
     }
 
     /// Shorten a path for display: replace the home prefix with `~`.
+    /// Home-relative paths always use `/` (`~/.claude/skills`), like the agents' own docs.
     pub fn display(&self, path: &Path) -> String {
         match path.strip_prefix(&self.home) {
             Ok(rest) if rest.as_os_str().is_empty() => "~".to_string(),
-            Ok(rest) => format!("~/{}", rest.to_string_lossy()),
+            Ok(rest) => format!("~/{}", rest.to_string_lossy().replace('\\', "/")),
             Err(_) => path.to_string_lossy().into_owned(),
         }
+    }
+
+    /// Directories where command-line tools commonly live, beyond `PATH` (GUI apps
+    /// on macOS get a minimal one; on Windows these are the usual per-user installs).
+    pub fn extra_bin_dirs(&self) -> Vec<PathBuf> {
+        let mut dirs: Vec<PathBuf> = [
+            "~/.local/bin",
+            "~/.npm-global/bin",
+            "~/.bun/bin",
+            "~/.cargo/bin",
+            "~/.volta/bin",
+            "~/bin",
+        ]
+        .iter()
+        .map(|d| self.expand(d))
+        .collect();
+        #[cfg(unix)]
+        dirs.extend(
+            ["/opt/homebrew/bin", "/usr/local/bin"]
+                .iter()
+                .map(PathBuf::from),
+        );
+        #[cfg(windows)]
+        {
+            let appdata = self.var("APPDATA").map(PathBuf::from);
+            let local = self.var("LOCALAPPDATA").map(PathBuf::from);
+            dirs.extend(appdata.map(|a| a.join("npm")));
+            if let Some(l) = local {
+                dirs.push(l.join("pnpm"));
+                dirs.push(l.join("Volta").join("bin"));
+                dirs.push(l.join("Microsoft").join("WinGet").join("Links"));
+            }
+            dirs.push(self.home.join("scoop").join("shims"));
+        }
+        dirs
+    }
+}
+
+/// Home directory of the current user.
+fn system_home() -> PathBuf {
+    #[cfg(windows)]
+    {
+        // USERPROFILE is the Windows home; HOME may be set by Git Bash or MSYS in
+        // a form (`/c/Users/me`) native code can't use.
+        ["USERPROFILE", "HOME"]
+            .iter()
+            .filter_map(std::env::var_os)
+            .map(PathBuf::from)
+            .find(|p| p.is_absolute())
+            .or_else(std::env::home_dir)
+            .unwrap_or_else(|| PathBuf::from(r"C:\"))
+    }
+    #[cfg(not(windows))]
+    {
+        std::env::var_os("HOME")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("/"))
+    }
+}
+
+/// Rewrite separators to the platform's own (`C:\a/b` → `C:\a\b`); a no-op elsewhere.
+fn native(path: PathBuf) -> PathBuf {
+    if cfg!(windows) {
+        path.components().collect()
+    } else {
+        path
     }
 }
 

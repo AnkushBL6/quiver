@@ -1,7 +1,7 @@
 name: Build app
 
-# Full universal macOS bundle on demand (Actions -> Build app -> Run workflow).
-# Releases build their own bundle from release.yml, so nothing runs here on push.
+# Full app bundles (universal macOS, Windows NSIS installer) on demand (Actions -> Build app -> Run workflow).
+# Releases build their own bundles from release.yml, so nothing runs here on push.
 on:
   workflow_dispatch:
 
@@ -37,3 +37,57 @@ jobs:
         with:
           name: Quiver-macos-universal
           path: target/universal-apple-darwin/release/bundle/dmg/*.dmg
+
+  windows:
+    name: Windows NSIS installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-windows
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.0.3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: app
+      - run: pnpm tauri build --bundles nsis
+        working-directory: app
+      - name: Check the installer
+        shell: pwsh
+        run: |
+          $installers = Get-ChildItem target/release/bundle/nsis -Filter '*-setup.exe'
+          if (-not $installers) { throw 'no NSIS installer was produced' }
+          $installers | ForEach-Object { Write-Host ("{0}  {1:N1} MB" -f $_.Name, ($_.Length / 1MB)) }
+      # Install it the way a user would (silently, for the current user), start the app
+      # against a throwaway profile, and make sure it stays up.
+      - name: Install and launch smoke test
+        shell: pwsh
+        run: |
+          $setup = (Get-ChildItem target/release/bundle/nsis -Filter '*-setup.exe' | Select-Object -First 1).FullName
+          Start-Process -FilePath $setup -ArgumentList '/S' -Wait
+          $dir = Join-Path $env:LOCALAPPDATA 'Quiver'
+          Get-ChildItem $dir | Format-Table Name, Length | Out-String | Write-Host
+          $exe = Get-ChildItem $dir -Filter '*.exe' | Where-Object { $_.Name -notmatch 'unins' } | Select-Object -First 1
+          if (-not $exe) { throw "no app executable installed in $dir" }
+          $profileDir = Join-Path $env:RUNNER_TEMP 'quiver-app-profile'
+          New-Item -ItemType Directory -Path $profileDir | Out-Null
+          $env:USERPROFILE = $profileDir
+          $app = Start-Process -FilePath $exe.FullName -PassThru
+          Start-Sleep -Seconds 12
+          $app.Refresh()
+          if ($app.HasExited) { throw "the app exited right after launch (code $($app.ExitCode))" }
+          Write-Host "running: $($exe.Name), window title '$($app.MainWindowTitle)'"
+          Stop-Process -Id $app.Id -Force
+          $uninstall = Get-ChildItem $dir -Filter 'uninstall*.exe' | Select-Object -First 1
+          if ($uninstall) { Start-Process -FilePath $uninstall.FullName -ArgumentList '/S' -Wait }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Quiver-windows-x64
+          path: target/release/bundle/nsis/*-setup.exe

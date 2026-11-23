@@ -8,6 +8,57 @@ import registry from "../../crates/quiver-core/agents.json";
 const REPO = "https://github.com/AnkushBL6/quiver";
 const DOWNLOAD = `${REPO}/releases/latest`;
 
+// Direct links to the latest release's installers. Until the release list loads (or if it
+// can't: offline, rate-limited, or a release without a Windows build) both buttons open the
+// release page, where every file is listed.
+type Downloads = { mac: string; windows: string };
+let downloadsRequest: Promise<Downloads> | undefined;
+function loadDownloads(): Promise<Downloads> {
+  downloadsRequest ??= fetch("https://api.github.com/repos/AnkushBL6/quiver/releases/latest", { headers: { Accept: "application/vnd.github+json" } })
+    .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+    .then((rel: { assets?: { name: string; browser_download_url: string }[] }) => {
+      const asset = (re: RegExp) => rel.assets?.find((a) => re.test(a.name))?.browser_download_url;
+      return { mac: asset(/\.dmg$/i) ?? DOWNLOAD, windows: asset(/-setup\.exe$/i) ?? DOWNLOAD };
+    })
+    .catch(() => ({ mac: DOWNLOAD, windows: DOWNLOAD }));
+  return downloadsRequest;
+}
+function useDownloads(): Downloads {
+  const [d, setD] = useState<Downloads>({ mac: DOWNLOAD, windows: DOWNLOAD });
+  useEffect(() => {
+    let live = true;
+    void loadDownloads().then((x) => live && setD(x));
+    return () => { live = false; };
+  }, []);
+  return d;
+}
+/** The visitor's OS decides which download comes first; macOS otherwise. */
+const ON_WINDOWS = typeof navigator !== "undefined" && /Win/.test(navigator.platform || navigator.userAgent);
+
+/** "Download for macOS" and "Download for Windows", the visitor's own platform first and highlighted. */
+function DownloadButtons({ size = "lg", className = "" }: { size?: "lg" | "sm"; className?: string }) {
+  const d = useDownloads();
+  const icon = size === "lg" ? 18 : 15;
+  const items = [
+    { key: "mac", href: d.mac, label: "Download for macOS" },
+    { key: "windows", href: d.windows, label: "Download for Windows" },
+  ];
+  if (ON_WINDOWS) items.reverse();
+  return (
+    <>
+      {items.map((it, i) => (
+        <a
+          key={it.key}
+          href={it.href}
+          className={`btn ${i === 0 ? "btn-primary" : "btn-ghost"} btn-${size} ${className}`}
+        >
+          <ArrowDownToLine size={icon} /> {it.label}
+        </a>
+      ))}
+    </>
+  );
+}
+
 type AgentDef = { id: string; name: string; tier: number; globalDirs: string[] };
 const AGENTS = (registry as { agents: AgentDef[] }).agents;
 
@@ -53,11 +104,16 @@ function Nav() {
         </nav>
         <div className="flex items-center gap-2">
           <a href={REPO} className="btn btn-ghost btn-sm" aria-label="GitHub"><Github size={15} /> <span className="hidden sm:inline">GitHub</span></a>
-          <a href={DOWNLOAD} className="btn btn-primary btn-sm"><ArrowDownToLine size={15} /> Download</a>
+          <NavDownload />
         </div>
       </div>
     </header>
   );
+}
+
+function NavDownload() {
+  const d = useDownloads();
+  return <a href={ON_WINDOWS ? d.windows : d.mac} className="btn btn-primary btn-sm"><ArrowDownToLine size={15} /> Download</a>;
 }
 
 function CopyLine({ text }: { text: string }) {
@@ -86,7 +142,7 @@ function Hero() {
     <section className="pb-20 pt-16 md:pb-28 md:pt-24">
       <div className="wrap text-center">
         <a href={REPO} className="fade-up eyebrow inline-block hover:underline" style={{ textUnderlineOffset: 3 }}>
-          Free and open source · MIT · macOS
+          Free and open source · MIT · macOS and Windows
         </a>
         <h1 className="fade-up mx-auto mt-4 max-w-[860px] text-balance text-[40px] font-semibold leading-[1.05] tracking-[-0.025em] sm:text-[56px] md:text-[72px]" style={{ animationDelay: "60ms" }}>
           One skill library for every coding agent.
@@ -94,12 +150,12 @@ function Hero() {
         <p className="lead fade-up mx-auto mt-6 max-w-[640px] md:text-[21px]" style={{ animationDelay: "120ms" }}>
           Install an Agent Skill once. Claude Code, Codex, Antigravity, Cursor and {AGENTS.length - 4}+ other agents see it right away. Quiver keeps them in sync, up to date and free of broken links.
         </p>
-        <div className="fade-up mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row" style={{ animationDelay: "180ms" }}>
-          <a href={DOWNLOAD} className="btn btn-primary btn-lg w-full max-w-[280px] sm:w-auto"><ArrowDownToLine size={18} /> Download for macOS</a>
-          <a href={REPO} className="btn btn-ghost btn-lg w-full max-w-[280px] sm:w-auto"><Github size={18} /> Star on GitHub</a>
+        <div className="fade-up mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap" style={{ animationDelay: "180ms" }}>
+          <DownloadButtons className="w-full max-w-[280px] sm:w-auto" />
         </div>
         <p className="fade-up mt-5 text-balance text-[13px]" style={{ color: "var(--fg-2)", animationDelay: "220ms" }}>
-          Universal app for Apple Silicon and Intel · macOS 12+ · under 7 MB
+          macOS 12+ (Apple Silicon and Intel) · Windows 10 and 11 · the <code className="font-mono text-[0.92em]">quiver</code> CLI for both ·{" "}
+          <a href={REPO} className="hover:underline" style={{ color: "var(--accent-text)", textUnderlineOffset: 3 }}>Star on GitHub</a>
         </p>
       </div>
 
@@ -296,7 +352,7 @@ function How() {
 }
 
 const FEATURES = [
-  { icon: Layers, title: "Every skill, one library", body: "Search and filter everything installed on your Mac. A matrix view shows exactly which agent sees which skill, and you can toggle any cell." },
+  { icon: Layers, title: "Every skill, one library", body: "Search and filter everything installed on your computer. A matrix view shows exactly which agent sees which skill, and you can toggle any cell." },
   { icon: Sparkles, title: "Universal mode", body: "Turn it on once and every skill stays in every agent. New installs, skills added to any one agent, and newly installed agents are all handled for you. No checkboxes." },
   { icon: PenLine, title: "Your own skills, kept apart", body: "Skills you write live in ~/Skills, a git repo you own. Every agent sees them, updates never touch them, and Quiver commits, pulls and pushes for you. Fork any installed skill with Make it mine." },
   { icon: SearchCheck, title: "Finds lost sources", body: "Skills copied in by hand never update. Quiver finds where each one came from and checks it against the repo's git tree hash, then tracks it for updates." },
@@ -386,6 +442,9 @@ function Cli() {
           <h2 className="h2 mt-3">The same engine, as a CLI.</h2>
           <p className="lead mt-5">Quiver's core is a Rust library. The desktop app and the <code className="font-mono text-[0.9em]">quiver</code> command share it, so scripts, dotfiles and CI get exactly the same behavior.</p>
           <div className="mt-7"><CopyLine text="cargo install --git https://github.com/AnkushBL6/quiver quiver-cli" /></div>
+          <p className="mt-4 text-[14px]" style={{ color: "var(--fg-2)" }}>
+            Prebuilt binaries are on the <a href={DOWNLOAD} className="hover:underline" style={{ color: "var(--accent-text)", textUnderlineOffset: 3 }}>releases page</a>: a <code className="font-mono text-[0.92em]">.tar.gz</code> for macOS and a <code className="font-mono text-[0.92em]">.zip</code> with <code className="font-mono text-[0.92em]">quiver.exe</code> for Windows.
+          </p>
         </div>
         <div className="min-w-0 overflow-hidden rounded-[12px]" style={{ background: "var(--term-bg)", color: "var(--term-fg)", boxShadow: "var(--term-shadow)" }}>
           <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: "1px solid var(--term-line)" }}>
@@ -405,11 +464,12 @@ function Cli() {
 
 const FAQ = [
   ["What is an Agent Skill?", "A folder with a SKILL.md file (instructions plus optional scripts and resources) that a coding agent loads when it's relevant. The format is an open standard documented at agentskills.io and supported by most coding agents."],
-  ["Does Quiver change how my agents work?", "No. Agents read skills from their usual folders. Quiver only manages what's in those folders, using symlinks that point at the shared store. If an agent doesn't follow symlinks, switch it to copy mode in Settings and Quiver keeps the copies in sync."],
-  ["What happens to the skills I already have?", "Nothing, until you decide. Quiver scans and shows everything. When you choose Make universal, it moves the skill into ~/.agents/skills, leaves a link where it was, and links it to your other agents. Replaced folders go to the Trash."],
+  ["Does Quiver change how my agents work?", "No. Agents read skills from their usual folders. Quiver only manages what's in those folders, using symlinks that point at the shared store (junctions on Windows, which need no special permissions). If an agent doesn't follow links, switch it to copy mode in Settings and Quiver keeps the copies in sync."],
+  ["What happens to the skills I already have?", "Nothing, until you decide. Quiver scans and shows everything. When you choose Make universal, it moves the skill into ~/.agents/skills, leaves a link where it was, and links it to your other agents. Replaced folders go to the Trash (the Recycle Bin on Windows)."],
   ["Is it compatible with npx skills?", "Yes. Both tools use ~/.agents/skills and the same lockfile (~/.agents/.skill-lock.json). Quiver preserves fields it doesn't recognize."],
-  ["Does it send data anywhere?", "Quiver has no telemetry and no account. It contacts GitHub only to install and check updates, and skills.sh only when you search. An optional GitHub token, for private repos and higher rate limits, is stored in your macOS Keychain."],
-  ["Windows or Linux?", "The Rust core and CLI already build on Linux. Desktop builds for Windows and Linux are on the roadmap, and contributions are welcome."],
+  ["Does it send data anywhere?", "Quiver has no telemetry and no account. It contacts GitHub only to install and check updates, and skills.sh only when you search. An optional GitHub token, for private repos and higher rate limits, is stored in your macOS Keychain or Windows Credential Manager."],
+  ["Does it run on Windows?", "Yes. The Windows app is an NSIS installer for Windows 10 and 11, and the CLI is a single quiver.exe. Skills are linked with junctions, so no Developer Mode or admin rights are needed. Windows builds aren't code-signed yet, so SmartScreen may ask you to confirm on first run."],
+  ["And Linux?", "The Rust core and CLI already build on Linux. A desktop build is on the roadmap, and contributions are welcome."],
 ];
 
 function Faq() {
@@ -440,13 +500,13 @@ function Footer() {
       <div className="wrap text-center">
         <Logo size={80} className="mx-auto" />
         <h2 className="h2 mx-auto mt-4 max-w-[620px]">Install a skill once. Use it everywhere.</h2>
-        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <a href={DOWNLOAD} className="btn btn-primary btn-lg w-full max-w-[280px] sm:w-auto"><ArrowDownToLine size={18} /> Download for macOS</a>
+        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap">
+          <DownloadButtons className="w-full max-w-[280px] sm:w-auto" />
           <a href={REPO} className="btn btn-ghost btn-lg w-full max-w-[280px] sm:w-auto">Read the source <ArrowRight size={16} /></a>
         </div>
         <div className="hair-t mt-20 flex flex-col items-center justify-between gap-3 pt-6 text-[13px] md:flex-row" style={{ color: "var(--fg-2)" }}>
           <span>© 2026 Quiver contributors · MIT License</span>
-          <span className="flex items-center gap-1.5"><Trash2 size={13} aria-hidden="true" /> Nothing is ever deleted outright. It goes to the Trash.</span>
+          <span className="flex items-center gap-1.5"><Trash2 size={13} aria-hidden="true" /> Nothing is ever deleted outright. It goes to the Trash or Recycle Bin.</span>
           <span className="flex gap-5">
             <a href={REPO} className="navlink">GitHub</a>
             <a href={`${REPO}/issues`} className="navlink">Issues</a>

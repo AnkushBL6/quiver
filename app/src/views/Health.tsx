@@ -3,7 +3,7 @@ import { AlertTriangle, CheckCircle2, ChevronRight, FileWarning, Folder, GitMerg
 import { toast } from "sonner";
 import { api, errorMessage } from "../lib/api";
 import type { AgentInfo, OpReport, Skill, SyncOptions, SyncPlan } from "../lib/types";
-import { cx, plural, tildify } from "../lib/ui";
+import { cx, joinPath, plural, tildify } from "../lib/ui";
 import { useActions, useData, useNav } from "../state/store";
 import { AgentAvatar } from "../components/identity";
 import { Button, Checkbox, Skeleton, Toolbar, ToolbarTitle } from "../components/ui";
@@ -368,7 +368,7 @@ function ConflictRow({ skill, agents, onKeep }: { skill: Skill; agents: Map<stri
                 </div>
                 <div className="truncate font-mono text-[10.5px] text-fg-3">{tildify(l.path)}</div>
               </div>
-              <Button size="sm" onClick={() => void api.openPath(`${l.path}/SKILL.md`)}>
+              <Button size="sm" onClick={() => void api.openPath(joinPath(l.path, "SKILL.md"))}>
                 View
               </Button>
               <Button

@@ -2,7 +2,8 @@
 //!
 //! Invariants:
 //! - The canonical store (`~/.agents/skills/<id>`) is the single source of truth.
-//! - Agent dirs only ever receive symlinks (or copies in copy mode) of it.
+//! - Agent dirs only ever receive links (symlinks, or junctions on Windows) or,
+//!   in copy mode, copies of it.
 //! - Nothing user-authored is deleted outright: real folders go to the Trash.
 
 use crate::Quiver;
@@ -153,7 +154,7 @@ impl Quiver {
             Entry::File => bail!("{} exists and is a file", self.env.display(&dest)),
         }
         match agent.link_mode {
-            LinkMode::Symlink => fsutil::symlink_dir(&src, &dest),
+            LinkMode::Symlink => fsutil::link_or_copy_dir(&src, &dest),
             LinkMode::Copy => fsutil::copy_dir(&src_real, &dest),
         }
     }
@@ -328,8 +329,7 @@ impl Quiver {
                     .with_context(|| format!("moving {}", winner_real.display()))?;
             } else {
                 // Lives elsewhere (a dev checkout, an old canonical target): keep it live via a link.
-                #[cfg(unix)]
-                std::os::unix::fs::symlink(&winner_real, &staging)?;
+                fsutil::symlink_dir_abs(&winner_real, &staging)?;
             }
             match entry(&canonical_path) {
                 Entry::Missing => {}
@@ -340,7 +340,7 @@ impl Quiver {
                 .context("installing into the canonical store")?;
             if moved {
                 // Leave a link where the folder used to be.
-                fsutil::symlink_dir(&canonical_path, &winner_real)?;
+                fsutil::link_or_copy_dir(&canonical_path, &winner_real)?;
             }
         }
 
@@ -354,7 +354,7 @@ impl Quiver {
                         Entry::Dir => self.discard(&l.path)?,
                         _ => {}
                     }
-                    fsutil::symlink_dir(&canonical_path, &l.path)?;
+                    fsutil::link_or_copy_dir(&canonical_path, &l.path)?;
                 }
             }
         }

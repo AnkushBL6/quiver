@@ -362,9 +362,9 @@ mod tests {
     /// Matches `git write-tree` for the same content.
     #[test]
     fn tree_sha_matches_git() {
-        if !Path::new("/usr/bin/git").is_file() {
+        let Ok(git_bin) = crate::source::find_git() else {
             return;
-        }
+        };
         let d = tempfile::tempdir().unwrap();
         let root = d.path();
         std::fs::create_dir_all(root.join("s/scripts")).unwrap();
@@ -383,11 +383,15 @@ mod tests {
             .unwrap();
         }
         let git = |args: &[&str]| {
-            let o = std::process::Command::new("/usr/bin/git")
-                .current_dir(root.join("s"))
-                .args(args)
-                .output()
-                .unwrap();
+            // Windows' git defaults to CRLF conversion and has no exec bit; pin both
+            // so it hashes the same bytes and modes `git_tree_sha` sees.
+            let mut cmd = crate::proc::command(&git_bin);
+            cmd.current_dir(root.join("s"))
+                .args(["-c", "core.autocrlf=false"]);
+            if cfg!(windows) {
+                cmd.args(["-c", "core.filemode=false"]);
+            }
+            let o = cmd.args(args).output().unwrap();
             String::from_utf8(o.stdout).unwrap().trim().to_string()
         };
         git(&["init", "-q"]);

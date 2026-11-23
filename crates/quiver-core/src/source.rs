@@ -37,21 +37,39 @@ pub enum Spec {
     },
 }
 
+/// A Windows drive path (`C:\skills`, `c:/skills`).
+fn is_drive_path(s: &str) -> bool {
+    matches!(s.as_bytes(), [d, b':', b'\\' | b'/', ..] if d.is_ascii_alphabetic())
+}
+
 /// Parse user input into a source spec.
 pub fn parse(input: &str, home: &Path) -> Result<Spec> {
-    let mut s = input.trim().trim_end_matches('/').to_string();
+    let mut s = input.trim().trim_end_matches(['/', '\\']).to_string();
     anyhow::ensure!(!s.is_empty(), "enter a GitHub repo, URL or folder");
 
-    // Local paths.
+    // Local paths: Unix-style, `~`, relative, `file://`, and Windows drive or UNC paths
+    // (the leading `\\` also covers `\\server\share` and `\\?\C:\...`).
     if s.starts_with('/')
         || s.starts_with("~/")
+        || s.starts_with("~\\")
         || s == "~"
         || s.starts_with("./")
         || s.starts_with("../")
+        || s.starts_with(".\\")
+        || s.starts_with("..\\")
+        || s.starts_with('\\')
+        || is_drive_path(&s)
         || s.starts_with("file://")
     {
         let raw = s.trim_start_matches("file://");
-        let p = if let Some(rest) = raw.strip_prefix("~/") {
+        // file:///C:/Users/me → /C:/Users/me → C:/Users/me
+        let raw = match raw.as_bytes() {
+            [b'/', d, b':', ..] if d.is_ascii_alphabetic() => &raw[1..],
+            _ => raw,
+        };
+        let p = if raw == "~" {
+            home.to_path_buf()
+        } else if let Some(rest) = raw.strip_prefix("~/").or_else(|| raw.strip_prefix("~\\")) {
             home.join(rest)
         } else {
             PathBuf::from(raw)
@@ -135,7 +153,7 @@ pub fn parse(input: &str, home: &Path) -> Result<Spec> {
     if segs.len() >= 2 && segs.iter().all(|x| valid(x)) {
         // Prefer an existing relative folder if the user typed one.
         if Path::new(&body).is_dir() {
-            return local_spec(std::fs::canonicalize(&body)?);
+            return local_spec(fsutil::canonicalize(Path::new(&body))?);
         }
         return Ok(Spec::GitHub {
             repo: format!("{}/{}", segs[0], segs[1].trim_end_matches(".git")),
@@ -145,7 +163,7 @@ pub fn parse(input: &str, home: &Path) -> Result<Spec> {
         });
     }
     if Path::new(&body).exists() {
-        return local_spec(std::fs::canonicalize(&body)?);
+        return local_spec(fsutil::canonicalize(Path::new(&body))?);
     }
     bail!(
         "couldn't understand `{input}`. Try owner/repo, a GitHub URL, a git URL, or a folder path."
@@ -745,22 +763,60 @@ pub fn discover_local(root: &Path) -> Vec<String> {
 }
 
 pub(crate) fn find_git() -> Result<PathBuf> {
-    [
-        "/usr/bin/git",
-        "/opt/homebrew/bin/git",
-        "/usr/local/bin/git",
-    ]
-    .iter()
-    .map(PathBuf::from)
-    .find(|p| p.is_file())
-    .ok_or_else(|| anyhow!("git is not installed (run `xcode-select --install`)"))
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    #[cfg(unix)]
+    candidates.extend(
+        [
+            "/usr/bin/git",
+            "/opt/homebrew/bin/git",
+            "/usr/local/bin/git",
+        ]
+        .map(PathBuf::from),
+    );
+    #[cfg(windows)]
+    {
+        // Git for Windows' installer locations; PATH usually has it too, but a
+        // GUI launched before the install won't see the new PATH yet.
+        for var in ["ProgramFiles", "ProgramFiles(x86)", "ProgramW6432"] {
+            if let Some(root) = std::env::var_os(var) {
+                candidates.push(Path::new(&root).join(r"Git\cmd\git.exe"));
+                candidates.push(Path::new(&root).join(r"Git\bin\git.exe"));
+            }
+        }
+        if let Some(local) = std::env::var_os("LOCALAPPDATA") {
+            candidates.push(Path::new(&local).join(r"Programs\Git\cmd\git.exe"));
+        }
+    }
+    if let Some(path) = std::env::var_os("PATH") {
+        for dir in std::env::split_paths(&path) {
+            candidates.push(dir.join(if cfg!(windows) { "git.exe" } else { "git" }));
+        }
+    }
+    candidates.into_iter().find(|p| p.is_file()).ok_or_else(|| {
+        anyhow!(
+            "git is not installed ({})",
+            if cfg!(windows) {
+                "install Git for Windows from https://git-scm.com/download/win, or run `winget install Git.Git`"
+            } else {
+                "run `xcode-select --install`"
+            }
+        )
+    })
 }
 
 /// Shallow clone; returns the checked-out commit.
 pub fn git_clone(url: &str, git_ref: Option<&str>, dest: &Path) -> Result<String> {
     let git = find_git()?;
-    let mut cmd = std::process::Command::new(&git);
-    cmd.args(["clone", "--depth", "1", "--quiet"]);
+    let mut cmd = crate::proc::command(&git);
+    // No CRLF conversion: skill hashes must match the bytes GitHub has.
+    cmd.args([
+        "clone",
+        "--depth",
+        "1",
+        "--quiet",
+        "-c",
+        "core.autocrlf=false",
+    ]);
     if let Some(r) = git_ref {
         cmd.args(["--branch", r]);
     }
@@ -772,7 +828,7 @@ pub fn git_clone(url: &str, git_ref: Option<&str>, dest: &Path) -> Result<String
             String::from_utf8_lossy(&out.stderr).trim()
         );
     }
-    let rev = std::process::Command::new(&git)
+    let rev = crate::proc::command(&git)
         .arg("-C")
         .arg(dest)
         .args(["rev-parse", "HEAD"])
@@ -783,7 +839,7 @@ pub fn git_clone(url: &str, git_ref: Option<&str>, dest: &Path) -> Result<String
 /// Remote HEAD (or ref) commit without cloning.
 pub fn git_remote_head(url: &str, git_ref: Option<&str>) -> Result<String> {
     let git = find_git()?;
-    let out = std::process::Command::new(git)
+    let out = crate::proc::command(git)
         .args(["ls-remote", url, git_ref.unwrap_or("HEAD")])
         .env("GIT_TERMINAL_PROMPT", "0")
         .output()?;
@@ -835,6 +891,10 @@ fn extract_zip<R: std::io::Read + std::io::Seek>(reader: R, dir: &Path) -> Resul
         let Some(rel) = f.enclosed_name() else {
             continue;
         };
+        // `name:stream` would address an NTFS alternate data stream.
+        if cfg!(windows) && rel.to_string_lossy().contains(':') {
+            continue;
+        }
         let out = dir.join(rel);
         if f.is_dir() {
             std::fs::create_dir_all(&out)?;
@@ -926,6 +986,69 @@ mod tests {
             Spec::Archive { .. }
         ));
         assert!(parse("not a source", h).is_err());
+    }
+
+    #[test]
+    fn windows_paths_are_local_paths() {
+        let h = Path::new("/nonexistent-home");
+        // Recognised as paths on every OS (the error says the folder is missing,
+        // not that the input is unintelligible).
+        for input in [
+            r"C:\Users\nobody\skills",
+            "c:/Users/nobody/skills",
+            r"C:\Users\nobody\skills\",
+            r"\\server\share\skills",
+            r"..\nobody",
+            r".\nobody",
+            "file:///C:/Users/nobody/skills",
+        ] {
+            let err = parse(input, h).unwrap_err().to_string();
+            assert!(err.contains("does not exist"), "{input}: {err}");
+        }
+        // Not paths.
+        assert!(matches!(parse("a/b", h).unwrap(), Spec::GitHub { .. }));
+        assert!(matches!(
+            parse("git@host:x/y.git", h).unwrap(),
+            Spec::Git { .. }
+        ));
+        // `~` and `~\x` resolve against the given home.
+        let home = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(home.path().join("mine")).unwrap();
+        assert_eq!(
+            parse("~", home.path()).unwrap(),
+            Spec::Local {
+                path: home.path().to_path_buf()
+            }
+        );
+        assert_eq!(
+            parse("~/mine", home.path()).unwrap(),
+            Spec::Local {
+                path: home.path().join("mine")
+            }
+        );
+        assert_eq!(
+            parse(r"~\mine", home.path()).unwrap(),
+            Spec::Local {
+                path: home.path().join("mine")
+            }
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn existing_windows_folder_is_a_local_source() {
+        let d = tempfile::tempdir().unwrap();
+        let p = d.path().to_string_lossy().into_owned();
+        let h = Path::new(r"C:\nonexistent-home");
+        for input in [p.clone(), p.replace('\\', "/"), format!("{p}\\")] {
+            assert_eq!(
+                parse(&input, h).unwrap(),
+                Spec::Local {
+                    path: PathBuf::from(p.trim_end_matches('\\'))
+                },
+                "{input}"
+            );
+        }
     }
 
     #[test]

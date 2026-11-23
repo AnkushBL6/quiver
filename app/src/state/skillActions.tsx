@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { toast } from "sonner";
 import { api, errorMessage } from "../lib/api";
 import type { Skill } from "../lib/types";
-import { listNames, plural } from "../lib/ui";
+import { listNames, plural, trashName } from "../lib/ui";
 import { useConfirm } from "../components/overlay";
 import { useActions, useData } from "./store";
 
@@ -25,22 +25,22 @@ export function useSkillActions() {
       const copies = skill.locations.filter((l) => l.kind === "directory" || l.kind === "canonical").length;
       const agents = skill.presence.filter((p) => p.presence !== "absent" && p.presence !== "broken").length;
       const ok = await confirm({
-        title: `Move “${skill.name}” to the Trash?`,
+        title: `Move “${skill.name}” to the ${trashName}?`,
         message: (
           <>
             {skill.origin === "mine"
-              ? `Its folder in ${mineDir} moves to the Trash and the deletion shows up as a change to commit. `
+              ? `Its folder in ${mineDir} moves to the ${trashName} and the deletion shows up as a change to commit. `
               : copies
-                ? `${plural(copies, "folder")} will move to the Trash${links ? ` and ${plural(links, "link")} will be removed` : ""}. `
+                ? `${plural(copies, "folder")} will move to the ${trashName}${links ? ` and ${plural(links, "link")} will be removed` : ""}. `
                 : ""}
-            {agents ? `${plural(agents, "agent")} will stop seeing it. ` : ""}You can put it back from the Trash.
+            {agents ? `${plural(agents, "agent")} will stop seeing it. ` : ""}You can put it back from the {trashName}.
           </>
         ),
-        confirmLabel: "Move to Trash",
+        confirmLabel: `Move to ${trashName}`,
         destructive: true,
       });
       if (!ok) return false;
-      const done = await run(() => api.removeSkill(skill.id), `Moved ${skill.name} to the Trash`);
+      const done = await run(() => api.removeSkill(skill.id), `Moved ${skill.name} to the ${trashName}`);
       if (done) void refreshMySkills();
       return done;
     },

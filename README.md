@@ -12,6 +12,7 @@
 <p align="center">
   <a href="https://getquiver.vercel.app">Website</a> ·
   <a href="https://github.com/AnkushBL6/quiver/releases/latest">Download for macOS</a> ·
+  <a href="https://github.com/AnkushBL6/quiver/releases/latest/download/Quiver-windows-x64-setup.exe">Download for Windows</a> ·
   <a href="#cli">CLI</a> ·
   <a href="#supported-agents">Supported agents</a> ·
   <a href="#how-it-works">How it works</a>
@@ -32,7 +33,7 @@
 
 Every coding agent reads [Agent Skills](https://agentskills.io) (folders with a `SKILL.md`) from **its own folder**: `~/.claude/skills`, `~/.gemini/config/skills`, `~/.cursor/skills`, `~/.factory/skills`, and so on. Install a skill for one agent and the others never see it. Update it in one place and the copies drift apart. After a few months you have dozens of duplicates, broken symlinks and skills stranded in a single tool.
 
-Quiver fixes that:
+Quiver fixes that, on macOS and Windows:
 
 - **Install once, use everywhere.** Skills live in one shared store and are linked into every agent you use.
 - **Universal mode.** Turn it on once and Quiver keeps every skill in every agent by itself. New installs go everywhere, a skill dropped into any one agent's folder is shared with the rest, and newly installed agents get your whole library. No per-agent checkboxes; switch a skill off for one agent only if you want an exception.
@@ -44,8 +45,8 @@ Quiver fixes that:
 - **Health checks.** Finds broken links, conflicting copies and malformed `SKILL.md` frontmatter, and fixes them.
 - **Install from anywhere.** `owner/repo`, GitHub URLs (tree/blob), skills.sh links, any git URL (GitLab, Bitbucket, SSH), local folders and `.zip` files. You can also drag and drop them onto the window.
 - **Discover.** Search the [skills.sh](https://skills.sh) directory from inside the app.
-- **Safe by design.** Nothing is deleted outright: replaced folders go to the macOS Trash, and every download is verified against GitHub's git blob SHA-1.
-- **Fast and small.** The core is Rust and the app is built with Tauri; Quiver.app is under 7 MB. It scans 200+ skills across 70 agents in about 80 ms.
+- **Safe by design.** Nothing is deleted outright: replaced folders go to the Trash (the Recycle Bin on Windows), and every download is verified against GitHub's git blob SHA-1.
+- **Fast and small.** The core is Rust and the app is built with Tauri; Quiver.app is under 7 MB on macOS. It scans 200+ skills across 70 agents in about 80 ms.
 
 ## How it works
 
@@ -55,25 +56,40 @@ Quiver fixes that:
                     ├── frontend-design/
                     └── my-skill/
                           ▲   ▲   ▲
-         symlink ─────────┘   │   └───────── symlink
+   symlink / junction ────┘   │   └──── symlink / junction
 ~/.claude/skills/pdf    ~/.gemini/config/skills/pdf    ~/.cursor/skills/pdf   …
 ```
 
 - The canonical store is `~/.agents/skills`, the same location the [`skills` CLI](https://github.com/vercel-labs/skills) uses. Codex, Cline, Warp, Zed, Pi, Kimi and other "universal" agents read it **natively**, so they need no links at all.
-- Every other agent gets a relative symlink in its own skills folder. Agents that don't follow symlinks can be switched to **copy mode** in Settings, and Quiver keeps those copies in sync.
+- Every other agent gets a link in its own skills folder: a relative **symlink** on macOS and Linux, a **junction** on Windows. Agents that don't follow links can be switched to **copy mode** in Settings, and Quiver keeps those copies in sync. See [Windows](#windows) for how links work there.
 - Quiver reads and writes the shared lockfile `~/.agents/.skill-lock.json` (v3) and preserves fields it doesn't know about, so it works side by side with `npx skills`.
-- Your own skills live in `~/Skills/<name>` (configurable). The store entry `~/.agents/skills/<name>` is a symlink to it, so agents see it through the same links as everything else while the source of truth stays in your repo.
-- Quiver-only state (install hashes for local-edit detection, agents you hid a skill from, update cache) lives in `~/.quiver/`. Your GitHub token, if you add one, is stored in the macOS Keychain.
+- Your own skills live in `~/Skills/<name>` (configurable). The store entry `~/.agents/skills/<name>` is a link to it, so agents see it through the same links as everything else while the source of truth stays in your repo.
+- Quiver-only state (install hashes for local-edit detection, agents you hid a skill from, update cache) lives in `~/.quiver/`. Your GitHub token, if you add one, is stored in the macOS Keychain or Windows Credential Manager. On Windows, `~` means your user profile (`C:\Users\<you>`), so the same paths apply: `~/.claude/skills` is `%USERPROFILE%\.claude\skills`.
 
 ## Install
 
 **macOS app:** download the `.dmg` from [Releases](https://github.com/AnkushBL6/quiver/releases/latest) (universal: Apple Silicon and Intel, macOS 12+).
+
+**Windows app:** download `Quiver-windows-x64-setup.exe` from [Releases](https://github.com/AnkushBL6/quiver/releases/latest) (Windows 10 and 11, 64-bit). It installs for the current user, so no admin rights are needed. The installer isn't code-signed yet, so SmartScreen may show "Windows protected your PC": choose **More info → Run anyway**.
 
 **CLI:**
 
 ```sh
 cargo install --git https://github.com/AnkushBL6/quiver quiver-cli
 ```
+
+or download a prebuilt binary from Releases: `quiver-cli-macos-universal.tar.gz` (macOS) or `quiver-cli-windows-x64.zip` (contains `quiver.exe`; put it on your `PATH`).
+
+### Windows
+
+Quiver works the same way on Windows; only the link mechanism differs, because creating symlinks there normally needs Developer Mode or admin rights.
+
+- **Junctions first.** Each agent's skill folder is a directory *junction* pointing at the shared store. Junctions need no special permission, work on any local NTFS drive, and every agent follows them like a normal folder. `quiver doctor`, the Health view and the broken-link checks understand them exactly as they do symlinks.
+- **Symlinks as a fallback**, when a junction can't be made (for example on a volume that doesn't support them but does allow symlinks).
+- **Copies as a last resort.** If neither kind of link is possible, the agent's folder gets a plain copy of the skill (shown as *Copied*), so the agent still sees it. Per-agent **copy mode** in Settings does the same on purpose.
+- Set `QUIVER_WINDOWS_LINKS=junction`, `symlink` or `copy` to force one strategy (default `auto`).
+- Folders you delete go to the Recycle Bin. Git (for **My Skills** versioning) is found in `PATH` or the usual Git for Windows locations; install it with `winget install Git.Git`.
+- Agent icons come from macOS app bundles, so on Windows agents show a lettered monogram instead.
 
 ## CLI
 
@@ -111,7 +127,7 @@ Paths come from the `skills` CLI's agent table and were **verified against the i
 
 ## Development
 
-Requirements: Rust (stable), Node 22+, pnpm, and Xcode Command Line Tools.
+Requirements: Rust (stable), Node 22+, pnpm, and a C toolchain: Xcode Command Line Tools on macOS, or the Visual Studio Build Tools ("Desktop development with C++") and WebView2 on Windows.
 
 ```sh
 cd app
@@ -137,7 +153,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 - Project-level skills (`.claude/skills`, `.agents/skills` in repos)
 - `quiver://` deep links for one-click installs from websites
 - Self-updating app (Tauri updater) and Homebrew cask
-- Windows and Linux builds (the core is already cross-platform)
+- Linux desktop build (the core and CLI already build there)
+- Code-signing for the Windows installer
 - Menu bar mode with update notifications
 
 ## License

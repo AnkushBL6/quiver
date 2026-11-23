@@ -28,7 +28,24 @@ import {
 import { toast } from "sonner";
 import { api, errorMessage } from "../lib/api";
 import type { AgentInfo, Issue, Skill, SkillDetail } from "../lib/types";
-import { PRESENCE, cx, formatBytes, isVisible, listNames, plural, pluginName, problemsOf, sourceGroup, tildify, visibleAgents } from "../lib/ui";
+import {
+  PRESENCE,
+  cx,
+  fileManager,
+  formatBytes,
+  isRemoveKey,
+  isVisible,
+  joinPath,
+  listNames,
+  plural,
+  pluginName,
+  problemsOf,
+  removeHint,
+  sourceGroup,
+  tildify,
+  trashName,
+  visibleAgents,
+} from "../lib/ui";
 import { usePersistent } from "../lib/hooks";
 import { effectivePresence, useActions, useData } from "../state/store";
 import { useSkillActions } from "../state/skillActions";
@@ -192,10 +209,10 @@ function SheetBody({
     setBusy(null);
   };
 
-  // ⌘⌫ removes, like in the grid.
+  // ⌘⌫ (Delete on Windows) removes, like in the grid.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey) || e.key !== "Backspace") return;
+      if (!isRemoveKey(e)) return;
       const t = e.target as HTMLElement;
       if (t.isContentEditable || /INPUT|TEXTAREA|SELECT/.test(t.tagName)) return;
       const dialogs = document.querySelectorAll('[role="dialog"][aria-modal="true"]');
@@ -285,7 +302,7 @@ function SheetBody({
     add(
       "reveal",
       <Button size="lg" icon={<FolderOpen size={13} />} onClick={() => reveal(path)}>
-        Reveal in Finder
+        Reveal in {fileManager}
       </Button>,
     );
 
@@ -410,13 +427,13 @@ function MoreMenu({
       </Button>
       <Popover anchor={ref} open={open} onClose={() => setOpen(false)} align="start" className="w-[230px]">
         {path && !mine && (
-          <MenuItem icon={<FileText size={13} />} onSelect={pick(() => void api.openPath(`${path}/SKILL.md`).catch((e) => toast.error(errorMessage(e))))}>
+          <MenuItem icon={<FileText size={13} />} onSelect={pick(() => void api.openPath(joinPath(path, "SKILL.md")).catch((e) => toast.error(errorMessage(e))))}>
             Open SKILL.md
           </MenuItem>
         )}
         {path && !shown.has("reveal") && (
           <MenuItem icon={<FolderOpen size={13} />} onSelect={pick(() => reveal(path))}>
-            Reveal in Finder
+            Reveal in {fileManager}
           </MenuItem>
         )}
         {path && (
@@ -442,8 +459,8 @@ function MoreMenu({
           </MenuItem>
         )}
         <MenuSeparator />
-        <MenuItem icon={<Trash2 size={13} />} danger disabled={skill.readOnly} onSelect={pick(onRemove)} hint="⌘⌫">
-          Move to Trash…
+        <MenuItem icon={<Trash2 size={13} />} danger disabled={skill.readOnly} onSelect={pick(onRemove)} hint={removeHint}>
+          Move to {trashName}…
         </MenuItem>
       </Popover>
     </>
@@ -653,7 +670,7 @@ function Problem({
           Edit
         </Button>
       ) : (
-        <Button onClick={() => void api.openPath(`${skill.primaryPath}/SKILL.md`).catch((e) => toast.error(errorMessage(e)))}>Edit SKILL.md</Button>
+        <Button onClick={() => void api.openPath(joinPath(skill.primaryPath, "SKILL.md")).catch((e) => toast.error(errorMessage(e)))}>Edit SKILL.md</Button>
       );
   }
 
@@ -680,7 +697,7 @@ function Problem({
                   {tildify(l.path)}
                 </div>
               </div>
-              <Button size="sm" onClick={() => void api.openPath(`${l.path}/SKILL.md`)}>
+              <Button size="sm" onClick={() => void api.openPath(joinPath(l.path, "SKILL.md"))}>
                 View
               </Button>
               <Button size="sm" variant="primary" loading={busy === "adopt"} onClick={() => void onAdopt(l.path)}>
@@ -804,7 +821,7 @@ function Files({ detail }: { detail: SkillDetail }) {
           <span className="truncate font-mono text-[11.5px] text-fg-2">{open}</span>
           <div className="flex-1" />
           {detail.skill.primaryPath && (
-            <IconButton label="Open in Default App" className="h-[22px] min-w-[24px]" onClick={() => void api.openPath(`${detail.skill.primaryPath}/${open}`)}>
+            <IconButton label="Open in Default App" className="h-[22px] min-w-[24px]" onClick={() => void api.openPath(joinPath(detail.skill.primaryPath, open))}>
               <ExternalLink size={12} />
             </IconButton>
           )}

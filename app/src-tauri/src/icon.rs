@@ -1,70 +1,86 @@
-//! App icons for agents: the bundle's .icns rendered to a small PNG with
-//! `sips`, cached on disk by bundle path and modification time.
+//! App icons for agents: on macOS the bundle's .icns rendered to a small PNG
+//! with `sips`, cached on disk by bundle path and modification time. Other
+//! platforms have no app bundles, so there is no icon and the UI shows a
+//! monogram.
 
-use std::hash::{Hash, Hasher};
-use std::path::{Path, PathBuf};
-use std::process::Command;
+#[cfg(not(target_os = "macos"))]
+use std::path::Path;
 
-const SIZE: &str = "128";
-
-pub fn app_icon_png(bundle: &Path, cache: &Path) -> Option<Vec<u8>> {
-    let mtime = std::fs::metadata(bundle.join("Contents/Info.plist"))
-        .and_then(|m| m.modified())
-        .ok()?;
-    let mut h = std::collections::hash_map::DefaultHasher::new();
-    bundle.hash(&mut h);
-    mtime.hash(&mut h);
-    let out = cache.join(format!("{:016x}.png", h.finish()));
-    if let Ok(bytes) = std::fs::read(&out) {
-        return Some(bytes);
-    }
-    let icns = icns_path(bundle)?;
-    std::fs::create_dir_all(cache).ok()?;
-    let ok = Command::new("/usr/bin/sips")
-        .args(["-s", "format", "png", "-Z", SIZE])
-        .arg(&icns)
-        .arg("--out")
-        .arg(&out)
-        .output()
-        .is_ok_and(|o| o.status.success());
-    if !ok {
-        return None;
-    }
-    std::fs::read(&out).ok()
+#[cfg(not(target_os = "macos"))]
+pub fn app_icon_png(_bundle: &Path, _cache: &Path) -> Option<Vec<u8>> {
+    None
 }
 
-fn icns_path(bundle: &Path) -> Option<PathBuf> {
-    let plist = bundle.join("Contents/Info.plist");
-    let res = bundle.join("Contents/Resources");
-    let named = ["CFBundleIconFile", "CFBundleIconName"]
-        .iter()
-        .find_map(|key| {
-            let o = Command::new("/usr/bin/plutil")
-                .args(["-extract", key, "raw", "-o", "-"])
-                .arg(&plist)
-                .output()
-                .ok()?;
-            let name = String::from_utf8(o.stdout).ok()?.trim().to_string();
-            (o.status.success() && !name.is_empty()).then_some(name)
+#[cfg(target_os = "macos")]
+pub use mac::app_icon_png;
+
+#[cfg(target_os = "macos")]
+mod mac {
+    use std::hash::{Hash, Hasher};
+    use std::path::{Path, PathBuf};
+    use std::process::Command;
+
+    const SIZE: &str = "128";
+
+    pub fn app_icon_png(bundle: &Path, cache: &Path) -> Option<Vec<u8>> {
+        let mtime = std::fs::metadata(bundle.join("Contents/Info.plist"))
+            .and_then(|m| m.modified())
+            .ok()?;
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        bundle.hash(&mut h);
+        mtime.hash(&mut h);
+        let out = cache.join(format!("{:016x}.png", h.finish()));
+        if let Ok(bytes) = std::fs::read(&out) {
+            return Some(bytes);
+        }
+        let icns = icns_path(bundle)?;
+        std::fs::create_dir_all(cache).ok()?;
+        let ok = Command::new("/usr/bin/sips")
+            .args(["-s", "format", "png", "-Z", SIZE])
+            .arg(&icns)
+            .arg("--out")
+            .arg(&out)
+            .output()
+            .is_ok_and(|o| o.status.success());
+        if !ok {
+            return None;
+        }
+        std::fs::read(&out).ok()
+    }
+
+    fn icns_path(bundle: &Path) -> Option<PathBuf> {
+        let plist = bundle.join("Contents/Info.plist");
+        let res = bundle.join("Contents/Resources");
+        let named = ["CFBundleIconFile", "CFBundleIconName"]
+            .iter()
+            .find_map(|key| {
+                let o = Command::new("/usr/bin/plutil")
+                    .args(["-extract", key, "raw", "-o", "-"])
+                    .arg(&plist)
+                    .output()
+                    .ok()?;
+                let name = String::from_utf8(o.stdout).ok()?.trim().to_string();
+                (o.status.success() && !name.is_empty()).then_some(name)
+            })
+            .map(|n| {
+                let p = res.join(&n);
+                if p.extension().is_some() {
+                    p
+                } else {
+                    res.join(format!("{n}.icns"))
+                }
+            })
+            .filter(|p| p.is_file());
+        named.or_else(|| {
+            // Some bundles ship the icon under another name; take the largest .icns.
+            std::fs::read_dir(&res)
+                .ok()?
+                .flatten()
+                .map(|e| e.path())
+                .filter(|p| p.extension().is_some_and(|x| x == "icns"))
+                .max_by_key(|p| std::fs::metadata(p).map(|m| m.len()).unwrap_or(0))
         })
-        .map(|n| {
-            let p = res.join(&n);
-            if p.extension().is_some() {
-                p
-            } else {
-                res.join(format!("{n}.icns"))
-            }
-        })
-        .filter(|p| p.is_file());
-    named.or_else(|| {
-        // Some bundles ship the icon under another name; take the largest .icns.
-        std::fs::read_dir(&res)
-            .ok()?
-            .flatten()
-            .map(|e| e.path())
-            .filter(|p| p.extension().is_some_and(|x| x == "icns"))
-            .max_by_key(|p| std::fs::metadata(p).map(|m| m.len()).unwrap_or(0))
-    })
+    }
 }
 
 pub fn data_url(png: &[u8]) -> String {

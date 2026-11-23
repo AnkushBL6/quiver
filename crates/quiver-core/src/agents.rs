@@ -2,6 +2,7 @@
 //! and whether they are installed on this machine.
 
 use crate::env::Env;
+use crate::fsutil;
 use crate::model::{AgentInfo, LinkMode, Settings};
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
@@ -30,7 +31,8 @@ pub struct AgentDef {
     pub tier: u8,
     #[serde(default)]
     pub note: Option<String>,
-    /// App bundle names (in /Applications or ~/Applications), used for icons.
+    /// macOS app bundle names (in /Applications or ~/Applications), used for icons.
+    /// Other platforms have no bundles; the UI shows a monogram instead.
     #[serde(default)]
     pub apps: Vec<String>,
 }
@@ -113,9 +115,9 @@ impl Agent {
     }
 }
 
-/// First installed app bundle among `names`.
+/// First installed app bundle among `names` (macOS only).
 fn find_app(env: &Env, names: &[String]) -> Option<PathBuf> {
-    if !env.probe_system {
+    if !cfg!(target_os = "macos") || !env.probe_system {
         return None;
     }
     names.iter().find_map(|n| {
@@ -131,7 +133,7 @@ fn find_app(env: &Env, names: &[String]) -> Option<PathBuf> {
 
 /// Normalize a path for equality checks (resolves symlinks when the path exists).
 pub fn normalize(path: &Path) -> PathBuf {
-    std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
+    fsutil::normalize(path)
 }
 
 /// Resolve the full agent list for this machine.
@@ -293,26 +295,35 @@ fn has_bin(env: &Env, bin: &str) -> bool {
     if !env.probe_system {
         return false;
     }
-    let mut dirs: Vec<PathBuf> = [
-        "~/.local/bin",
-        "~/.npm-global/bin",
-        "~/.bun/bin",
-        "~/.cargo/bin",
-        "~/.volta/bin",
-        "~/bin",
-    ]
-    .iter()
-    .map(|d| env.expand(d))
-    .collect();
-    dirs.extend(
-        ["/opt/homebrew/bin", "/usr/local/bin"]
-            .iter()
-            .map(PathBuf::from),
-    );
+    let mut dirs = env.extra_bin_dirs();
     if let Some(path) = env.var("PATH") {
         dirs.extend(std::env::split_paths(path));
     }
-    dirs.iter().any(|d| d.join(bin).is_file())
+    let exts = bin_extensions(env);
+    dirs.iter().any(|d| bin_in_dir(d, bin, &exts))
+}
+
+/// Executable suffixes to try after the bare name: none on Unix; on Windows the
+/// usual script and program extensions (including the `.cmd`/`.ps1` shims npm writes).
+fn bin_extensions(env: &Env) -> Vec<String> {
+    if !cfg!(windows) {
+        return vec![];
+    }
+    let mut exts: Vec<String> = env
+        .var("PATHEXT")
+        .unwrap_or(".COM;.EXE;.BAT;.CMD")
+        .split(';')
+        .filter(|e| !e.is_empty())
+        .map(str::to_lowercase)
+        .collect();
+    if !exts.iter().any(|e| e == ".ps1") {
+        exts.push(".ps1".into());
+    }
+    exts
+}
+
+fn bin_in_dir(dir: &Path, bin: &str, exts: &[String]) -> bool {
+    dir.join(bin).is_file() || exts.iter().any(|e| dir.join(format!("{bin}{e}")).is_file())
 }
 
 /// First dir that exists, else first whose parent exists, else the preferred one.

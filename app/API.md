@@ -11,7 +11,7 @@ All mutating commands return a fresh `Inventory` or an `OpReport`. Errors reject
 | `set_link` | `{ id, agentId, enabled }` | `Inventory` | Link/unlink one skill for one agent. Unmanaged skills are adopted first. |
 | `set_link_all` | `{ id, enabled }` | `Inventory` | Link to / unlink from every detected, enabled agent. |
 | `adopt` | `{ id, fromPath? }` | `Inventory` | "Make universal": move into ~/.agents/skills, replace copies with links. `fromPath` picks the winner on conflict. |
-| `remove_skill` | `{ id }` | `Inventory` | Moves canonical dir + agent copies to the Trash, deletes links. |
+| `remove_skill` | `{ id }` | `Inventory` | Moves canonical dir + agent copies to the Trash (Recycle Bin on Windows), deletes links. |
 | `create_skill` | `{ id, description }` | `Inventory` | Scaffold a new skill in My Skills (`~/Skills/<id>`, git-initialised on first use), link the canonical entry to it and out to the default agents. |
 | `my_skills_status` | – | `MySkillsStatus` | Folder, git branch/remote/ahead/behind, uncommitted changes, last commit, `problem` if the folder overlaps an agent folder. |
 | `my_skills_init` | – | `MySkillsStatus` | Create the folder (README, .gitignore) and `git init`. Idempotent. |
@@ -31,8 +31,8 @@ All mutating commands return a fresh `Inventory` or an `OpReport`. Errors reject
 | `update_skills` | `{ ids, force }` | `OpReport` | `force` overwrites local modifications. |
 | `search` | `{ query }` | `SearchResult[]` | skills.sh directory search. |
 | `get_settings` / `save_settings` | – / `{ settings }` | `Settings` | |
-| `set_github_token` | `{ token: string \| null }` | `Settings` | Stored in macOS Keychain. |
-| `reveal` | `{ path }` | – | Reveal in Finder. |
+| `set_github_token` | `{ token: string \| null }` | `Settings` | Stored in the macOS Keychain or Windows Credential Manager. |
+| `reveal` | `{ path }` | – | Reveal in Finder (File Explorer on Windows). |
 | `open_path` | `{ path }` | – | Open in default app/editor. |
 
 Skills carry `origin`: `mine` (in My Skills), `installed` (remote source), `local` (in the store, no remote), `unmanaged` (only in agent folders) or `plugin`; plus `gitChanges` (mine only) and `forkedFrom`.
