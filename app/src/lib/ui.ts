@@ -1,8 +1,8 @@
 // Small UI-only helpers and types (not part of the IPC contract).
 
-import type { AgentInfo, Issue, IssueKind, Presence, Skill } from "./types";
+import type { AgentInfo, Issue, IssueKind, Pin, PinState, Presence, Skill } from "./types";
 
-export type View = "library" | "mine" | "matrix" | "agents" | "updates" | "discover" | "health" | "settings";
+export type View = "library" | "mine" | "matrix" | "agents" | "updates" | "discover" | "health" | "projects" | "settings";
 
 /** The Library's attention toggles: everything, only skills with problems, or only skills with updates. */
 export type LibraryFilter = "all" | "issues" | "updates";
@@ -138,6 +138,81 @@ export function validateSkillName(id: string): string | null {
   if (id.includes("--")) return "Use single hyphens only.";
   return null;
 }
+
+// ── pinned skills ────────────────────────────────────────────────────────────
+
+/** A skill can be pinned when it has a shared copy to take the files from. */
+export const canPin = (skill: Skill) => skill.managed && !skill.plugin && !skill.readOnly;
+
+/** The one-line, plain status shown on a pin card; null when the pin is fine. */
+export interface PinStatus {
+  label: string;
+  /** The full story for a tooltip. */
+  detail: string;
+  tone: "amber" | "red";
+}
+
+function linkProblemLabel(problem: string | null, noun: "Link" | "Copy", where: string) {
+  const t = (problem ?? "").toLowerCase();
+  if (/text file|symlinks|checked out/.test(t)) return `Needs copies in ${where}`;
+  if (/missing|gone|isn't there|not there/.test(t)) return `${noun} missing in ${where}`;
+  if (/elsewhere|points/.test(t)) return `${noun} points elsewhere in ${where}`;
+  if (/differ/.test(t)) return `Copy differs in ${where}`;
+  return `${noun} problem in ${where}`;
+}
+
+export function pinStatus(pin: Pin, agents: AgentInfo[]): PinStatus | null {
+  const detail = pin.problems.join("\n");
+  switch (pin.state) {
+    case "ok":
+      return null;
+    case "missing":
+      return { label: "Folder missing", detail: detail || "The pinned folder isn't in the project any more.", tone: "red" };
+    case "modified": {
+      const files = pin.changedFiles;
+      const shown = files.slice(0, 2).join(", ");
+      return {
+        label: `Files changed${shown ? `: ${shown}${files.length > 2 ? ` +${files.length - 2}` : ""}` : ""}`,
+        detail: detail || "The pinned files were edited after pinning.",
+        tone: "amber",
+      };
+    }
+    case "links": {
+      const bad = pin.agents.filter((a) => !a.ok);
+      const name = (id: string) => agents.find((a) => a.id === id)?.name ?? id;
+      const noun = pin.mode === "copy" ? "Copy" : "Link";
+      return {
+        label: bad.length === 1 ? linkProblemLabel(bad[0].problem, noun, name(bad[0].agentId)) : `${noun}s need repair in ${bad.length || "some"} agents`,
+        detail: detail || bad.map((a) => `${name(a.agentId)}: ${a.problem ?? "needs repair"}`).join("\n"),
+        tone: "amber",
+      };
+    }
+  }
+}
+
+/** "Claude Code, Cursor and 3 more": the familiar names first. */
+export function summarizeAgents(list: { id: string; name: string }[]) {
+  if (!list.length) return "No agents";
+  const familiar = ["claude-code", "cursor"];
+  const rank = (id: string) => (familiar.includes(id) ? familiar.indexOf(id) : 99);
+  const sorted = [...list].sort((a, b) => rank(a.id) - rank(b.id));
+  if (sorted.length <= 3) return listNames(sorted.map((a) => a.name));
+  return `${sorted[0].name}, ${sorted[1].name} and ${sorted.length - 2} more`;
+}
+
+/** Worst state first, for sorting and badges. */
+export const PIN_STATE_RANK: Record<PinState, number> = { missing: 0, modified: 1, links: 2, ok: 3 };
+
+/** "Nov 23", with the year when it isn't this year. */
+export function shortDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString(undefined, sameYear ? { month: "short", day: "numeric" } : { month: "short", day: "numeric", year: "numeric" });
+}
+
+/** The first seven characters of a commit. */
+export const shortRef = (ref: string | null | undefined) => (ref ? ref.slice(0, 7) : "");
 
 // ── formatting ───────────────────────────────────────────────────────────────
 

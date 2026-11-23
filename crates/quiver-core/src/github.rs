@@ -115,9 +115,14 @@ impl Tree {
 
 impl Client {
     pub fn new(token: Option<String>) -> Self {
+        Self::with_timeouts(token, Duration::from_secs(10), Duration::from_secs(60))
+    }
+
+    /// For lookups that must fail soft instead of making the user wait.
+    pub fn with_timeouts(token: Option<String>, connect: Duration, read: Duration) -> Self {
         let agent = ureq::AgentBuilder::new()
-            .timeout_connect(Duration::from_secs(10))
-            .timeout_read(Duration::from_secs(60))
+            .timeout_connect(connect)
+            .timeout_read(read)
             .user_agent(UA)
             .build();
         Self { agent, token }
@@ -159,6 +164,31 @@ impl Client {
             .call()
             .map_err(|e| Self::api_err(e, repo))?;
         resp.into_json::<Tree>().context("parsing GitHub tree")
+    }
+
+    /// The full commit SHA a tag, branch or (abbreviated) SHA points at. A full
+    /// 40-character SHA is returned as is, without a request.
+    pub fn resolve_commit(&self, repo: &str, git_ref: &str) -> Result<String> {
+        if is_full_sha(git_ref) {
+            return Ok(git_ref.to_ascii_lowercase());
+        }
+        let url = format!(
+            "https://api.github.com/repos/{repo}/commits/{}",
+            urlencode(git_ref)
+        );
+        let text = self
+            .get(&url)
+            .set("Accept", "application/vnd.github.sha")
+            .call()
+            .map_err(|e| Self::api_err(e, &format!("{repo}@{git_ref}")))?
+            .into_string()
+            .context("reading GitHub's answer")?;
+        let sha = text.trim().to_ascii_lowercase();
+        anyhow::ensure!(
+            is_full_sha(&sha),
+            "GitHub didn't return a commit for `{git_ref}` in {repo}"
+        );
+        Ok(sha)
     }
 
     pub fn raw(&self, repo: &str, git_ref: &str, path: &str) -> Result<Vec<u8>> {
@@ -279,6 +309,11 @@ impl Client {
     }
 }
 
+/// A full 40-character hexadecimal commit SHA.
+pub fn is_full_sha(s: &str) -> bool {
+    s.len() == 40 && s.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
 /// `git hash-object` for a blob.
 pub fn git_blob_sha(bytes: &[u8]) -> String {
     let mut h = Sha1::new();
@@ -304,6 +339,15 @@ mod tests {
             git_blob_sha(b"hello\n"),
             "ce013625030ba8dba906f756967f9e9ca394464a"
         );
+    }
+
+    #[test]
+    fn recognises_full_shas() {
+        assert!(is_full_sha("ce013625030ba8dba906f756967f9e9ca394464a"));
+        assert!(is_full_sha("CE013625030BA8DBA906F756967F9E9CA394464A"));
+        assert!(!is_full_sha("ce01362"));
+        assert!(!is_full_sha("v1.2.0"));
+        assert!(!is_full_sha("ge013625030ba8dba906f756967f9e9ca394464a"));
     }
 
     #[test]

@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { api, errorMessage, onChanged } from "../lib/api";
-import type { EditorApp, Inventory, MySkillsStatus, Presence, Settings, UpdateInfo } from "../lib/types";
+import type { EditorApp, Inventory, MySkillsStatus, Presence, ProjectSummary, Settings, UpdateInfo } from "../lib/types";
 import { PRESENCE, presenceFor, visibleAgents, type LibraryFilter, type View } from "../lib/ui";
 
 // ── Data ─────────────────────────────────────────────────────────────────────
@@ -18,6 +18,8 @@ export interface DataState {
   /** The user's own skills folder (git status). Null until first load. */
   mySkills: MySkillsStatus | null;
   editors: EditorApp[] | null;
+  /** Registered projects (for the Projects section and its sidebar badge). Null until first load. */
+  projects: ProjectSummary[] | null;
 }
 
 export interface Actions {
@@ -34,6 +36,8 @@ export interface Actions {
   refreshMySkills: () => Promise<MySkillsStatus | null>;
   setMySkills: (s: MySkillsStatus) => void;
   loadEditors: () => Promise<void>;
+  refreshProjects: () => Promise<ProjectSummary[] | null>;
+  setProjects: (p: ProjectSummary[]) => void;
 }
 
 export const overrideKey = (skillId: string, agentId: string) => `${skillId}\u0000${agentId}`;
@@ -48,7 +52,7 @@ export interface NavState {
   filter: LibraryFilter;
   /** Narrow the Library to skills this agent sees (from Agents, Matrix or the palette). */
   agentFilter: string | null;
-  /** The skill whose sheet is open (Library and My Skills), mirrored in the URL. */
+  /** The skill whose sheet is open (Library and My Skills) or the open project's path (Projects), mirrored in the URL. */
   selectedId: string | null;
   /** Search text handed to the next view (Library → Discover). */
   query: string;
@@ -62,6 +66,14 @@ export interface InstallState {
   only: string[] | null;
 }
 
+export interface PinSheetState {
+  open: boolean;
+  /** Skill to preselect. */
+  skill: string | null;
+  /** Project (root path) to pin into; null = ask. */
+  project: string | null;
+}
+
 interface NavApi {
   nav: NavState;
   go: (view: View, patch?: Partial<Omit<NavState, "view">>) => void;
@@ -73,13 +85,19 @@ interface NavApi {
   setPaletteOpen: (open: boolean) => void;
   newSkillOpen: boolean;
   setNewSkillOpen: (open: boolean) => void;
+  pinSheet: PinSheetState;
+  openPinSheet: (opts?: { skill?: string | null; project?: string | null }) => void;
+  closePinSheet: () => void;
+  /** The pin that was just created: its card is highlighted for a moment. */
+  flash: { project: string; pin: string } | null;
+  setFlash: (f: { project: string; pin: string } | null) => void;
 }
 
 const NavCtx = createContext<NavApi | null>(null);
 
-const VIEWS: View[] = ["library", "mine", "matrix", "agents", "updates", "discover", "health", "settings"];
-/** Views with a skill grid whose open sheet lives in the URL. */
-export const SELECTABLE: View[] = ["library", "mine"];
+const VIEWS: View[] = ["library", "mine", "matrix", "agents", "updates", "discover", "health", "projects", "settings"];
+/** Views with something open that lives in the URL: a skill sheet (Library, My Skills) or a project page (Projects). */
+export const SELECTABLE: View[] = ["library", "mine", "projects"];
 
 function readHash(): Partial<NavState> {
   const parts = location.hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
@@ -100,6 +118,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [overrides, setOverrides] = useState<Map<string, Presence>>(() => new Map());
   const [mySkills, setMySkills] = useState<MySkillsStatus | null>(null);
   const [editors, setEditors] = useState<EditorApp[] | null>(null);
+  const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
+
+  const refreshProjects = useCallback(async () => {
+    try {
+      const list = await api.projectsList();
+      setProjects(list);
+      return list;
+    } catch {
+      // Show the empty state rather than loading forever; adding a project reports the real problem.
+      setProjects((prev) => prev ?? []);
+      return null;
+    }
+  }, []);
 
   const refreshMySkills = useCallback(async () => {
     try {
@@ -134,6 +165,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     async (opts?: { quiet?: boolean }) => {
       setScanning(true);
       void refreshMySkills();
+      void refreshProjects();
       try {
         const inv = await api.scan();
         setInventory(inv);
@@ -146,7 +178,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setScanning(false);
       }
     },
-    [setInventory, refreshMySkills],
+    [setInventory, refreshMySkills, refreshProjects],
   );
 
   /** Track overlapping mutations: responses can arrive out of order, so rescan once they all settle. */
@@ -348,8 +380,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [settings?.autoCheckUpdates, settings?.checkIntervalHours, checkUpdates]);
 
   const data = useMemo<DataState>(
-    () => ({ inventory, loadError, scanning, settings, updates, checkingUpdates, overrides, mySkills, editors }),
-    [inventory, loadError, scanning, settings, updates, checkingUpdates, overrides, mySkills, editors],
+    () => ({ inventory, loadError, scanning, settings, updates, checkingUpdates, overrides, mySkills, editors, projects }),
+    [inventory, loadError, scanning, settings, updates, checkingUpdates, overrides, mySkills, editors, projects],
   );
   const actions = useMemo<Actions>(
     () => ({
@@ -365,8 +397,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       refreshMySkills,
       setMySkills,
       loadEditors,
+      refreshProjects,
+      setProjects,
     }),
-    [rescan, setInventory, toggleLink, toggleAll, bulkAgent, checkUpdates, saveSettings, run, refreshMySkills, loadEditors],
+    [rescan, setInventory, toggleLink, toggleAll, bulkAgent, checkUpdates, saveSettings, run, refreshMySkills, loadEditors, refreshProjects],
   );
 
   // Navigation
@@ -381,6 +415,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [install, setInstall] = useState<InstallState>({ open: false, input: "", autoResolve: false, only: null });
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [newSkillOpen, setNewSkillOpen] = useState(false);
+  const [pinSheet, setPinSheet] = useState<PinSheetState>({ open: false, skill: null, project: null });
+  const [flash, setFlash] = useState<{ project: string; pin: string } | null>(null);
 
   useEffect(() => {
     const target = `#/${nav.view}${SELECTABLE.includes(nav.view) && nav.selectedId ? "/" + encodeURIComponent(nav.selectedId) : ""}`;
@@ -396,7 +432,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const navApi = useMemo<NavApi>(
     () => ({
       nav,
-      go: (view, patch) => setNav((n) => ({ ...n, query: "", ...patch, view })),
+      // Switching sections closes whatever was open in the old one (a skill sheet, a project page).
+      go: (view, patch) =>
+        setNav((n) => ({ ...n, query: "", ...(view !== n.view && !(patch && "selectedId" in patch) ? { selectedId: null } : {}), ...patch, view })),
       select: (id) => setNav((n) => ({ ...n, selectedId: id })),
       install,
       openInstall: (opts) =>
@@ -406,8 +444,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setPaletteOpen,
       newSkillOpen,
       setNewSkillOpen,
+      pinSheet,
+      openPinSheet: (opts) => setPinSheet({ open: true, skill: opts?.skill ?? null, project: opts?.project ?? null }),
+      closePinSheet: () => setPinSheet((s) => ({ ...s, open: false })),
+      flash,
+      setFlash,
     }),
-    [nav, install, paletteOpen, newSkillOpen],
+    [nav, install, paletteOpen, newSkillOpen, pinSheet, flash],
   );
 
   return (

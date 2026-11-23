@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { AlertTriangle, CheckCircle2, ChevronRight, FileWarning, Folder, GitMerge, Link2, Link2Off, Sparkles } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronRight, FileWarning, Folder, GitCompareArrows, GitMerge, Link2, Link2Off, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { api, errorMessage } from "../lib/api";
 import type { AgentInfo, OpReport, Skill, SyncOptions, SyncPlan } from "../lib/types";
@@ -7,6 +7,7 @@ import { cx, joinPath, plural, tildify } from "../lib/ui";
 import { useActions, useData, useNav } from "../state/store";
 import { AgentAvatar } from "../components/identity";
 import { Button, Checkbox, Skeleton, Toolbar, ToolbarTitle } from "../components/ui";
+import { CompareSheet } from "./CompareSheet";
 
 /** Run sync_apply, report the outcome, and refresh. Shared with onboarding. */
 export async function applySync(options: SyncOptions, rescan: (o?: { quiet?: boolean }) => Promise<void>): Promise<OpReport | null> {
@@ -65,6 +66,7 @@ export function HealthView() {
   const [opts, setOpts] = useState<SyncOptions>({ adopt: true, link: true, prune: true });
   const [applying, setApplying] = useState(false);
   const [open, setOpen] = useState<Record<string, boolean>>({ conflicts: true });
+  const [comparing, setComparing] = useState<string | null>(null);
 
   const agentsById = useMemo(() => new Map(inventory?.agents.map((a) => [a.id, a])), [inventory]);
   const skillsById = useMemo(() => new Map(inventory?.skills.map((s) => [s.id, s])), [inventory]);
@@ -150,11 +152,12 @@ export function HealthView() {
               {counts.conflicts > 0 && (
                 <Section
                   title="Conflicts"
-                  subtitle="Copies with the same name but different contents. Choose the one to keep; the others are replaced by links."
+                  subtitle="Copies with the same name but different contents. Compare them, then choose the one to keep; the others are replaced by links."
                   count={counts.conflicts}
                   open={!!open.conflicts}
                   onToggle={() => setOpen((o) => ({ ...o, conflicts: !o.conflicts }))}
                   icon={<GitMerge size={14} className="text-amber" />}
+                  tall
                 >
                   {plan.conflicts.map((id) => {
                     const s = skillsById.get(id);
@@ -163,6 +166,7 @@ export function HealthView() {
                         key={id}
                         skill={s}
                         agents={agentsById}
+                        onCompare={() => setComparing(id)}
                         onKeep={(path) => run(() => api.adopt(id, path), `Kept ${tildify(path)} for ${s.name}`)}
                       />
                     ) : null;
@@ -265,6 +269,15 @@ export function HealthView() {
           )}
         </div>
       </div>
+
+      <CompareSheet
+        skill={comparing ? (skillsById.get(comparing) ?? null) : null}
+        onClose={() => setComparing(null)}
+        onKeep={(path) => {
+          const s = comparing ? skillsById.get(comparing) : null;
+          return s ? run(() => api.adopt(s.id, path), `Kept ${tildify(path)} for ${s.name}`) : Promise.resolve(false);
+        }}
+      />
     </div>
   );
 }
@@ -291,6 +304,7 @@ function Section({
   open,
   onToggle,
   icon,
+  tall,
   children,
 }: {
   title: string;
@@ -301,6 +315,8 @@ function Section({
   open: boolean;
   onToggle: () => void;
   icon: ReactNode;
+  /** Rows are big (copies of a conflict): leave room for a few before scrolling. */
+  tall?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -317,7 +333,7 @@ function Section({
           <ChevronRight size={14} className={cx("shrink-0 text-fg-3 transition-transform duration-150", open && "rotate-90")} />
         </button>
       </div>
-      {open && <div className="anim-fade scroll max-h-[340px] border-t border-line">{children}</div>}
+      {open && <div className={cx("anim-fade scroll border-t border-line", tall ? "max-h-[620px]" : "max-h-[340px]")}>{children}</div>}
     </div>
   );
 }
@@ -336,17 +352,35 @@ function ItemRow({ children, onClick }: { children: ReactNode; onClick?: () => v
   );
 }
 
-function ConflictRow({ skill, agents, onKeep }: { skill: Skill; agents: Map<string, AgentInfo>; onKeep: (path: string) => Promise<boolean> }) {
+function ConflictRow({
+  skill,
+  agents,
+  onCompare,
+  onKeep,
+}: {
+  skill: Skill;
+  agents: Map<string, AgentInfo>;
+  onCompare: () => void;
+  onKeep: (path: string) => Promise<boolean>;
+}) {
   const [busy, setBusy] = useState<string | null>(null);
   const locs = skill.locations.filter((l) => l.kind === "canonical" || l.kind === "directory");
   const hashes = [...new Set(locs.map((l) => l.contentHash))];
   return (
     <div className="border-b border-line px-3.5 py-3 last:border-b-0">
       <div className="flex items-center gap-2 pl-[28px]">
-        <span className="text-[13px] font-medium">{skill.name}</span>
-        <span className="text-[12px] text-fg-3">
-          {locs.length} copies · {hashes.length} versions
-        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-2">
+            <span className="text-[13px] font-medium">{skill.name}</span>
+            <span className="text-[12px] text-fg-3">
+              {locs.length} copies · {hashes.length} versions
+            </span>
+          </div>
+          <div className="text-[12px] text-fg-2">Not sure which to keep? See what differs and which one has the fix.</div>
+        </div>
+        <Button variant="primary" icon={<GitCompareArrows size={13} />} onClick={onCompare}>
+          Compare
+        </Button>
       </div>
       <div className="mt-2 ml-[28px] overflow-hidden rounded-lg border border-line">
         {locs.map((l, i) => {
@@ -364,7 +398,10 @@ function ConflictRow({ skill, agents, onKeep }: { skill: Skill; agents: Map<stri
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 text-[12px] font-medium">
                   {a?.name ?? "Canonical store"}
-                  <span className="rounded bg-surface-3 px-1 font-mono text-[10px] font-normal text-fg-2">v{v + 1} · {l.contentHash?.slice(0, 7)}</span>
+                  <span className="rounded bg-surface-3 px-1 text-[10px] font-normal text-fg-2">
+                    Version {v + 1}
+                    <span className="font-mono text-fg-3"> · {l.contentHash?.slice(0, 7)}</span>
+                  </span>
                 </div>
                 <div className="truncate font-mono text-[10.5px] text-fg-3">{tildify(l.path)}</div>
               </div>
@@ -373,7 +410,6 @@ function ConflictRow({ skill, agents, onKeep }: { skill: Skill; agents: Map<stri
               </Button>
               <Button
                 size="sm"
-                variant="primary"
                 loading={busy === l.path}
                 disabled={!!busy && busy !== l.path}
                 onClick={async () => {

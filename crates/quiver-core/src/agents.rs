@@ -73,6 +73,8 @@ pub struct Agent {
     pub note: Option<String>,
     pub custom: bool,
     pub app_path: Option<PathBuf>,
+    /// Where the agent reads a repository's own skills, relative to the repo root.
+    pub project_dir: Option<String>,
 }
 
 impl Agent {
@@ -111,6 +113,7 @@ impl Agent {
                 .app_path
                 .as_ref()
                 .map(|p| p.to_string_lossy().into_owned()),
+            project_dir: self.project_dir.clone(),
         }
     }
 }
@@ -171,6 +174,7 @@ pub fn resolve(env: &Env, settings: &Settings, canonical: &Path) -> Vec<Agent> {
             &canonical_norm,
         );
         agent.app_path = find_app(env, &def.apps);
+        agent.project_dir = def.project_dir.clone();
         out.push(agent);
     }
     let claude_app = out
@@ -287,6 +291,7 @@ fn make_agent(
         note,
         custom,
         app_path: None,
+        project_dir: None,
     }
 }
 

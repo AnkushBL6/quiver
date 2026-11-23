@@ -3,9 +3,15 @@
 // the in-memory mock backend (src/lib/mock.ts), which the website and demo use.
 
 import type {
+  CopyComparison,
   EditorApp,
+  FileDiff,
   FileEntry,
   MySkillsStatus,
+  NameCheck,
+  PinRequest,
+  ProjectDetail,
+  ProjectSummary,
   SourceScan,
   InstallRequest,
   Inventory,
@@ -17,6 +23,7 @@ import type {
   SyncOptions,
   SyncPlan,
   UpdateInfo,
+  UpstreamCheck,
 } from "./types";
 
 export type { FileEntry };
@@ -63,6 +70,13 @@ export const api = {
   scan: () => call<Inventory>("scan"),
   skillDetail: (id: string) => call<SkillDetail>("skill_detail", { id }),
   readSkillFile: (id: string, path: string) => call<string>("read_skill_file", { id, path }),
+  /** Conflicting copies grouped into versions, with per-file status. Local only. */
+  compareCopies: (id: string) => call<CopyComparison>("compare_copies", { id }),
+  /** Which versions equal the latest upstream folder on GitHub. Network; resolves (never rejects) when offline. */
+  compareUpstream: (id: string) => call<UpstreamCheck>("compare_upstream", { id }),
+  /** Line diff of one file between two versions (by `contentHash`). */
+  compareFile: (id: string, path: string, leftHash: string, rightHash: string) =>
+    call<FileDiff>("compare_file", { id, path, leftHash, rightHash }),
   setLink: (id: string, agentId: string, enabled: boolean) =>
     call<Inventory>("set_link", { id, agentId, enabled }),
   setLinkAll: (id: string, enabled: boolean) => call<Inventory>("set_link_all", { id, enabled }),
@@ -97,6 +111,23 @@ export const api = {
   agentIcon: (agentId: string) => call<string | null>("agent_icon", { agentId }),
   findSources: (ids: string[]) => call<SourceScan>("find_sources", { ids }),
   trackSource: (id: string, source: string, skillPath: string) => call<null>("track_source", { id, source, skillPath }),
+  // Projects and pinned skills
+  projectsList: () => call<ProjectSummary[]>("projects_list"),
+  projectAdd: (path: string) => call<ProjectSummary>("project_add", { path }),
+  /** Unregisters only; never touches files. */
+  projectRemove: (path: string) => call<null>("project_remove", { path }),
+  projectDetail: (path: string) => call<ProjectDetail>("project_detail", { path }),
+  pinCheckName: (project: string, name: string) => call<NameCheck>("pin_check_name", { project, name }),
+  pinCreate: (request: PinRequest) => call<ProjectDetail>("pin_create", { request }),
+  /** `gitRef` null re-pins from the current shared copy. */
+  pinUpdate: (project: string, name: string, gitRef: string | null) => call<ProjectDetail>("pin_update", { project, name, gitRef }),
+  pinRemove: (project: string, name: string) => call<ProjectDetail>("pin_remove", { project, name }),
+  /** Recreates missing or wrong links and copies from the pin folder. Never changes pin content. */
+  pinSync: (project: string) => call<ProjectDetail>("pin_sync", { project }),
+  /** The shared copy (version 1) against the pinned copy (version 2). */
+  pinCompare: (project: string, name: string) => call<CopyComparison>("pin_compare", { project, name }),
+  pinCompareFile: (project: string, name: string, path: string, leftHash: string, rightHash: string) =>
+    call<FileDiff>("pin_compare_file", { project, name, path, leftHash, rightHash }),
 };
 
 /** Subscribe to `quiver://changed`. Returns an unsubscribe function. */
@@ -179,5 +210,21 @@ export async function pickSource(kind: "folder" | "zip"): Promise<string | null>
           title: "Choose a .zip",
           filters: [{ name: "Zip archive", extensions: ["zip"] }],
         });
+  return typeof res === "string" ? res : null;
+}
+
+/**
+ * Native folder picker for a project. In the browser it returns a sample project that isn't added yet
+ * (`taken` = paths already registered), so the demo flow works.
+ */
+const SAMPLE_PROJECTS = ["~/code/acme-web", "~/code/docs-site", "~/code/api-gateway", "~/code/mobile-app"];
+export async function pickProjectFolder(taken: string[] = []): Promise<string | null> {
+  if (!isTauri) {
+    const norm = (p: string) => p.replace(/^\/Users\/[^/]+/, "~");
+    const used = new Set(taken.map(norm));
+    return SAMPLE_PROJECTS.find((p) => !used.has(p)) ?? SAMPLE_PROJECTS[0];
+  }
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const res = await open({ directory: true, multiple: false, title: "Choose a project folder" });
   return typeof res === "string" ? res : null;
 }

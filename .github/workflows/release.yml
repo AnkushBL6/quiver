@@ -106,3 +106,46 @@ jobs:
           gh release upload "${{ github.ref_name }}" quiver-cli-windows-x64.zip Quiver-windows-x64-setup.exe --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Linux CLI, for CI machines (`quiver pins verify`). The desktop app has no Linux build.
+  # Built in parallel with the other jobs so it adds no time to the macOS one, but it
+  # only builds here: attaching happens in linux-publish, after the jobs that can create
+  # the draft release have finished, so two jobs never create it at the same time.
+  linux-cli:
+    # Oldest supported GitHub image: the binary needs glibc >= the build machine's.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-linux
+      - name: Linux deps for keyring
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
+      - name: Build CLI
+        run: |
+          cargo build --release -p quiver-cli
+          tar czf quiver-cli-linux-x64.tar.gz -C target/release quiver
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quiver-cli-linux-x64
+          path: quiver-cli-linux-x64.tar.gz
+          if-no-files-found: error
+
+  linux-publish:
+    runs-on: ubuntu-latest
+    # The macOS and Windows jobs create (or add to) the draft release; wait for both so this
+    # never races them. A failed app build doesn't stop the CLI from being attached to whichever
+    # release exists.
+    needs: [macos, windows, linux-cli]
+    if: ${{ !cancelled() && needs.linux-cli.result == 'success' }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: quiver-cli-linux-x64
+      # Stable name, so https://github.com/<repo>/releases/latest/download/quiver-cli-linux-x64.tar.gz works in CI.
+      - name: Attach to the release
+        run: gh release upload "${{ github.ref_name }}" quiver-cli-linux-x64.tar.gz --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}

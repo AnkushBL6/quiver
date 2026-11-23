@@ -17,6 +17,8 @@ export interface AgentInfo {
   custom: boolean;
   /** Installed app bundle for this agent (e.g. /Applications/Cursor.app), used for its icon. */
   appPath: string | null;
+  /** Where this agent reads a repository's own skills, e.g. ".claude/skills". null: no project folder. */
+  projectDir: string | null;
 }
 
 export type LocationKind = "canonical" | "directory" | "link" | "foreignLink" | "broken" | "plugin";
@@ -83,6 +85,8 @@ export interface Skill {
   gitChanges: number | null;
   /** e.g. "anthropics/skills" when made mine from an installed skill. */
   forkedFrom: string | null;
+  /** Projects that pin this skill under another name (from registered projects' pin files); [] if none. */
+  pinnedIn: PinRef[];
 }
 
 export interface Stats {
@@ -180,6 +184,8 @@ export interface Settings {
   mySkillsDir: string;
   /** Editor app name, e.g. "Visual Studio Code"; null = auto-detect. */
   editor: string | null;
+  /** Registered project roots (see Projects). Managed with project_add / project_remove. */
+  projects: string[];
 }
 
 export interface SyncPlan {
@@ -234,4 +240,205 @@ export interface SourceScan {
   matches: SourceMatch[];
   rateLimited: boolean;
   unchecked: string[];
+}
+
+// ── Comparing conflicting copies ────────────────────────────────────────────
+
+export interface VersionLocation {
+  path: string;
+  /** Agents reading this folder (empty for the shared store). */
+  agentIds: string[];
+  kind: LocationKind;
+}
+
+/** A distinct content of a skill: every copy with the same bytes is one version. */
+export interface SkillVersion {
+  /** "v1", "v2"… in the order Health lists the copies (shared copy first). */
+  id: string;
+  /** Identifies this content across calls (same value as `Location.contentHash`). */
+  contentHash: string;
+  locations: VersionLocation[];
+  /** Every agent that sees this version: through a copy, a link, or by reading the shared store. */
+  agentIds: string[];
+  /** The content of the shared store. */
+  shared: boolean;
+  modifiedMs: number | null;
+  fileCount: number;
+  sizeBytes: number;
+  /** Strictly the most recently modified version. */
+  newest: boolean;
+  /** true: differs from what was installed · false: still as installed · null: no install record. */
+  editedSinceInstall: boolean | null;
+}
+
+export type FileStatus = "same" | "changed" | "partial";
+export type FileContent = "text" | "binary" | "tooLarge";
+
+export interface FileVariant {
+  size: number;
+  /** Equal digests mean identical bytes. */
+  digest: string;
+}
+
+export interface FileCompare {
+  path: string;
+  status: FileStatus;
+  content: FileContent;
+  /** One per version (same order as `versions`); null where the file doesn't exist. */
+  variants: (FileVariant | null)[];
+}
+
+export interface CopyComparison {
+  skillId: string;
+  name: string;
+  versions: SkillVersion[];
+  files: FileCompare[];
+  /** "owner/repo" when installed from GitHub: `compare_upstream` can run. */
+  upstreamSource: string | null;
+  /** Version ids to show first: [left, right]. */
+  suggested: [string, string] | null;
+}
+
+export type UpstreamStatus = "checked" | "noSource" | "unavailable";
+
+export interface UpstreamCheck {
+  status: UpstreamStatus;
+  source: string | null;
+  /** `contentHash` of every version identical to the latest upstream folder. */
+  matchingHashes: string[];
+  message: string | null;
+}
+
+export type RowKind = "equal" | "insert" | "delete" | "replace";
+
+export interface DiffRow {
+  kind: RowKind;
+  leftNo: number | null;
+  rightNo: number | null;
+  left: string | null;
+  right: string | null;
+  /** Changed spans as [start, end) UTF-16 offsets. Empty = the whole line. */
+  leftMarks: [number, number][];
+  rightMarks: [number, number][];
+}
+
+export interface DiffBlock {
+  /** A long run of unchanged lines, hidden until expanded. Rows are still included. */
+  collapsed: boolean;
+  rows: DiffRow[];
+}
+
+export interface FileDiff {
+  path: string;
+  content: FileContent;
+  identical: boolean;
+  /** null where the file doesn't exist on that side. */
+  leftSize: number | null;
+  rightSize: number | null;
+  blocks: DiffBlock[];
+  added: number;
+  removed: number;
+  /** Same lines; only line endings differ. */
+  eolOnly: boolean;
+}
+
+// ── Projects and pinned skills ──────────────────────────────────────────────
+// A repo keeps its own fixed copy of a skill (under its own name) while every
+// other project keeps using the shared one. See /tmp/quiver-pins-contract.md.
+
+export type PinState = "ok" | "modified" | "missing" | "links";
+export type PinMode = "symlink" | "copy";
+
+export interface PinAgentLink {
+  agentId: string;
+  /** Repo-relative, e.g. ".claude/skills/browser-qa-release". */
+  dir: string;
+  kind: "native" | "symlink" | "copy";
+  ok: boolean;
+  /** Plain language. */
+  problem: string | null;
+}
+
+export interface Pin {
+  /** Pinned name (folder + frontmatter). */
+  name: string;
+  /** Original skill name. */
+  skill: string;
+  /** The original description, without the pin prefix. */
+  description: string;
+  source: SkillSource | null;
+  /** Commit SHA when pinned from GitHub at a ref. */
+  gitRef: string | null;
+  pinnedFrom: "shared" | "github";
+  /** ISO 8601. */
+  pinnedAt: string;
+  hash: string;
+  upstreamHash: string | null;
+  state: PinState;
+  changedFiles: string[];
+  /** Plain language, one per issue; empty when ok. */
+  problems: string[];
+  /** The shared copy on this machine moved on since pinning. Informational. null: no shared copy. */
+  sharedChanged: boolean | null;
+  /** Agents whose global skills folder already has a skill with this name. A warning. */
+  nameClash: string[];
+  mode: PinMode;
+  agents: PinAgentLink[];
+  /** Absolute path of the pin folder. */
+  path: string;
+}
+
+/** A skill in the project that is not a Quiver pin (e.g. from `npx skills add`). */
+export interface ProjectSkill {
+  name: string;
+  description: string;
+  /** Repo-relative folder. */
+  dir: string;
+  /** From the skills CLI's project file when present. */
+  source: string | null;
+}
+
+export interface ProjectSummary {
+  path: string;
+  /** Uses ~. */
+  displayPath: string;
+  /** Folder name. */
+  name: string;
+  /** Current git branch; null if not a repo or detached. */
+  branch: string | null;
+  isRepo: boolean;
+  exists: boolean;
+  pinCount: number;
+  /** Pins whose state isn't "ok". */
+  problemCount: number;
+}
+
+export interface ProjectDetail extends ProjectSummary {
+  pins: Pin[];
+  otherSkills: ProjectSkill[];
+  /** Absolute path of quiver-pins.json; null if there is none yet. */
+  lockFile: string | null;
+}
+
+export interface PinRequest {
+  project: string;
+  skill: string;
+  name: string;
+  /** null = pin the current shared copy. */
+  gitRef: string | null;
+  /** Empty = the default (enabled and detected agents). */
+  agents: string[];
+  mode: PinMode;
+}
+
+export interface NameCheck {
+  ok: boolean;
+  message: string | null;
+}
+
+export interface PinRef {
+  project: string;
+  projectName: string;
+  pin: string;
+  state: PinState;
 }

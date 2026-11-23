@@ -411,18 +411,21 @@ export function EmptyState({
   children,
   action,
   className,
+  wide,
 }: {
   icon?: ReactNode;
   title: string;
   children?: ReactNode;
   action?: ReactNode;
   className?: string;
+  /** Room for a sentence or two instead of a short line. */
+  wide?: boolean;
 }) {
   return (
     <div className={cx("flex flex-col items-center justify-center px-8 py-14 text-center", className)}>
       {icon && <div className="mb-3 text-fg-3 [&_svg]:h-[30px] [&_svg]:w-[30px] [&_svg]:stroke-[1.4]">{icon}</div>}
       <div className="text-[15px] font-semibold text-fg-2">{title}</div>
-      {children && <div className="mt-1 max-w-[320px] text-[12px] leading-[1.45] text-fg-3">{children}</div>}
+      {children && <div className={cx("mt-1 text-[12px] leading-[1.45] text-fg-3", wide ? "max-w-[400px]" : "max-w-[320px]")}>{children}</div>}
       {action && <div className="mt-4">{action}</div>}
     </div>
   );

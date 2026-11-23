@@ -7,6 +7,8 @@ export interface RegistryAgent {
   dirs: string[];
   readDirs: string[];
   note: string | null;
+  /** Where the agent reads a repository's own skills (null: none). */
+  projectDir: string | null;
 }
 
 export const REGISTRY: RegistryAgent[] = [
@@ -18,7 +20,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.claude/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".claude/skills"
   },
   {
     "id": "codex",
@@ -30,7 +33,8 @@ export const REGISTRY: RegistryAgent[] = [
     "readDirs": [
       "~/.codex/skills"
     ],
-    "note": "Codex reads ~/.agents/skills (user) and $CODEX_HOME/skills (legacy)."
+    "note": "Codex reads ~/.agents/skills (user) and $CODEX_HOME/skills (legacy).",
+    "projectDir": ".agents/skills"
   },
   {
     "id": "antigravity",
@@ -42,7 +46,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.gemini/antigravity-cli/skills"
     ],
     "readDirs": [],
-    "note": "Antigravity 2.x app and agy CLI read ~/.gemini/config/skills; older builds used ~/.gemini/antigravity/skills."
+    "note": "Antigravity 2.x app and agy CLI read ~/.gemini/config/skills; older builds used ~/.gemini/antigravity/skills.",
+    "projectDir": ".agents/skills"
   },
   {
     "id": "cursor",
@@ -52,7 +57,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.cursor/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".agents/skills"
   },
   {
     "id": "gemini-cli",
@@ -62,7 +68,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.gemini/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".agents/skills"
   },
   {
     "id": "github-copilot",
@@ -72,7 +79,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.copilot/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".agents/skills"
   },
   {
     "id": "opencode",
@@ -82,7 +90,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.config/opencode/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".agents/skills"
   },
   {
     "id": "windsurf",
@@ -92,7 +101,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.codeium/windsurf/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".windsurf/skills"
   },
   {
     "id": "droid",
@@ -102,7 +112,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.factory/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".agents/skills"
   },
   {
     "id": "amp",
@@ -112,7 +123,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.config/agents/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".agents/skills"
   },
   {
     "id": "kiro-cli",
@@ -122,7 +134,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.kiro/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".kiro/skills"
   },
   {
     "id": "cline",
@@ -132,7 +145,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.agents/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".agents/skills"
   },
   {
     "id": "roo",
@@ -142,7 +156,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.roo/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".roo/skills"
   },
   {
     "id": "kilo",
@@ -152,7 +167,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.kilo/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".agents/skills"
   },
   {
     "id": "continue",
@@ -162,7 +178,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.continue/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".continue/skills"
   },
   {
     "id": "goose",
@@ -172,7 +189,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.config/goose/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".goose/skills"
   },
   {
     "id": "qwen-code",
@@ -182,7 +200,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.qwen/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".qwen/skills"
   },
   {
     "id": "warp",
@@ -192,7 +211,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.agents/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".agents/skills"
   },
   {
     "id": "zed",
@@ -202,7 +222,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.agents/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".agents/skills"
   },
   {
     "id": "grok",
@@ -212,7 +233,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.grok/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".grok/skills"
   },
   {
     "id": "openhands",
@@ -222,7 +244,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.openhands/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".openhands/skills"
   },
   {
     "id": "junie",
@@ -232,7 +255,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.junie/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".junie/skills"
   },
   {
     "id": "trae",
@@ -242,7 +266,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.trae/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".trae/skills"
   },
   {
     "id": "augment",
@@ -252,7 +277,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.augment/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".augment/skills"
   },
   {
     "id": "crush",
@@ -262,7 +288,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.config/crush/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".crush/skills"
   },
   {
     "id": "adal",
@@ -272,7 +299,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.adal/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".adal/skills"
   },
   {
     "id": "aider-desk",
@@ -282,7 +310,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.aider-desk/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".aider-desk/skills"
   },
   {
     "id": "astrbot",
@@ -292,7 +321,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.astrbot/data/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": "data/skills"
   },
   {
     "id": "autohand-code",
@@ -302,7 +332,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.autohand/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".autohand/skills"
   },
   {
     "id": "codestudio",
@@ -312,7 +343,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.codestudio/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".codestudio/skills"
   },
   {
     "id": "codearts-agent",
@@ -322,7 +354,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.codeartsdoer/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".codeartsdoer/skills"
   },
   {
     "id": "codebuddy",
@@ -332,7 +365,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.codebuddy/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".codebuddy/skills"
   },
   {
     "id": "codemaker",
@@ -342,7 +376,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.codemaker/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".codemaker/skills"
   },
   {
     "id": "command-code",
@@ -352,7 +387,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.commandcode/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".commandcode/skills"
   },
   {
     "id": "cortex",
@@ -362,7 +398,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.snowflake/cortex/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".cortex/skills"
   },
   {
     "id": "deepagents",
@@ -372,7 +409,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.deepagents/agent/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".agents/skills"
   },
   {
     "id": "devin",
@@ -382,7 +420,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.config/devin/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".devin/skills"
   },
   {
     "id": "dexto",
@@ -392,7 +431,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.agents/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".agents/skills"
   },
   {
     "id": "firebender",
@@ -402,7 +442,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.firebender/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".agents/skills"
   },
   {
     "id": "forgecode",
@@ -412,7 +453,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.forge/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".forge/skills"
   },
   {
     "id": "fx",
@@ -422,7 +464,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.agents/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".agents/skills"
   },
   {
     "id": "hermes-agent",
@@ -432,7 +475,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.hermes/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".hermes/skills"
   },
   {
     "id": "bob",
@@ -442,7 +486,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.bob/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".bob/skills"
   },
   {
     "id": "iflow-cli",
@@ -452,7 +497,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.iflow/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".iflow/skills"
   },
   {
     "id": "inference-sh",
@@ -462,7 +508,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.inferencesh/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".inferencesh/skills"
   },
   {
     "id": "jazz",
@@ -472,7 +519,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.jazz/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".jazz/skills"
   },
   {
     "id": "kimchi",
@@ -482,7 +530,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.config/kimchi/harness/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".kimchi/skills"
   },
   {
     "id": "kimi-code-cli",
@@ -492,7 +541,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.agents/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".agents/skills"
   },
   {
     "id": "kode",
@@ -502,7 +552,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.kode/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".kode/skills"
   },
   {
     "id": "lingma",
@@ -512,7 +563,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.lingma/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".lingma/skills"
   },
   {
     "id": "loaf",
@@ -522,7 +574,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.agents/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".agents/skills"
   },
   {
     "id": "mcpjam",
@@ -532,7 +585,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.mcpjam/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".mcpjam/skills"
   },
   {
     "id": "minimax-code",
@@ -542,7 +596,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.minimax/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".minimax/skills"
   },
   {
     "id": "mistral-vibe",
@@ -552,7 +607,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.vibe/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".vibe/skills"
   },
   {
     "id": "moxby",
@@ -562,7 +618,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.moxby/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".moxby/skills"
   },
   {
     "id": "mux",
@@ -572,7 +629,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.mux/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".mux/skills"
   },
   {
     "id": "neovate",
@@ -582,7 +640,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.neovate/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".neovate/skills"
   },
   {
     "id": "ona",
@@ -592,7 +651,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.ona/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".ona/skills"
   },
   {
     "id": "openclaw",
@@ -602,7 +662,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.openclaw/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": "skills"
   },
   {
     "id": "pi",
@@ -612,7 +673,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.agents/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".agents/skills"
   },
   {
     "id": "pochi",
@@ -622,7 +684,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.pochi/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".pochi/skills"
   },
   {
     "id": "posit-assistant",
@@ -632,7 +695,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.posit/assistant/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".posit/assistant/skills"
   },
   {
     "id": "qoder",
@@ -642,7 +706,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.qoder/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".qoder/skills"
   },
   {
     "id": "reasonix",
@@ -652,7 +717,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.reasonix/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".reasonix/skills"
   },
   {
     "id": "rovodev",
@@ -662,7 +728,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.rovodev/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".rovodev/skills"
   },
   {
     "id": "sarvam-code",
@@ -672,7 +739,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.agents/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".agents/skills"
   },
   {
     "id": "tabnine-cli",
@@ -682,7 +750,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.tabnine/agent/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".tabnine/agent/skills"
   },
   {
     "id": "terramind",
@@ -692,7 +761,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.terramind/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".terramind/skills"
   },
   {
     "id": "tinycloud",
@@ -702,7 +772,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.tinycloud/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".tinycloud/skills"
   },
   {
     "id": "zcode",
@@ -712,7 +783,8 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.zcode/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".zcode/skills"
   },
   {
     "id": "zencoder",
@@ -722,6 +794,7 @@ export const REGISTRY: RegistryAgent[] = [
       "~/.zencoder/skills"
     ],
     "readDirs": [],
-    "note": null
+    "note": null,
+    "projectDir": ".zencoder/skills"
   }
 ];

@@ -259,7 +259,7 @@ pub fn sanitize_name(name: &str) -> String {
     s
 }
 
-fn skip_dir(name: &str) -> bool {
+pub(crate) fn skip_dir(name: &str) -> bool {
     name == ".git" || name == "node_modules"
 }
 

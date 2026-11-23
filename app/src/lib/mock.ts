@@ -33,7 +33,9 @@ import type {
   UpdateInfo,
 } from "./types";
 import { REGISTRY } from "./mockRegistry";
-import { fileManager } from "./ui";
+import { COMPARE_FIXTURES, buildComparison, buildFileDiff, fixtureBody, matchingUpstream, type MockGroup } from "./mockCompare";
+import { createPinMock } from "./mockPins";
+import { fileManager, isVisible } from "./ui";
 import {
   DIRECTORY,
   HOME,
@@ -116,6 +118,7 @@ let settings: Settings = {
   githubTokenSource: "gh",
   mySkillsDir: "~/Skills",
   editor: null,
+  projects: [],
 };
 
 // ── My Skills repo state ─────────────────────────────────────────────────────
@@ -345,6 +348,72 @@ function seedDefault() {
     severity: "warning",
     message: "SKILL.md has no description, so agents can't tell when to use this skill.",
   });
+  seedCompareDemo();
+  seedPinDemo();
+}
+
+/**
+ * A three-way conflict for the Compare sheet (file contents in mockCompare.ts). Added after
+ * everything else on purpose: it takes no random numbers and sorts last in Health.
+ * - the shared copy, as installed from GitHub 41 days ago (so it is the oldest)
+ * - Cursor's copy, re-installed later: identical to the latest upstream folder
+ * - Claude Code's copy: the user's own bug fix, the newest
+ */
+function seedCompareDemo() {
+  const shared = "3f9a1c2";
+  const m: MSkill = {
+    id: "writing-skills",
+    name: "writing-skills",
+    description: "Use when creating new skills, editing existing skills, or verifying skills work before deployment",
+    version: null,
+    license: null,
+    allowedTools: null,
+    files: ["render-graphs.js", "graphviz-conventions.dot", "persuasion-principles.md", "assets/", "assets/loop.png"],
+    body: fixtureBody("writing-skills", "shared"),
+    canonicalHash: shared,
+    entries: {},
+    source: sourceFor("obra/superpowers", "writing-skills", 11, "skills/writing-skills/SKILL.md"),
+    plugin: null,
+    modifiedMs: Date.now() - 38 * DAY,
+    // GitHub has moved on since the shared copy was installed.
+    upstream: { current: shared, latest: "c40b7de", modified: false },
+    extraIssues: [],
+  };
+  for (const id of DETECTED) if (!agentById(id)?.readsCanonical) m.entries[id] = linkEntry(id, shared);
+  m.entries["cursor"] = { kind: "dir", hash: "b72e540" };
+  m.entries["claude-code"] = { kind: "dir", hash: "e18d9a6" };
+  skills.set(m.id, m);
+}
+
+/**
+ * Two skills the demo project acme-web pins (their file contents are in mockPinFixtures.ts).
+ * Added last, with fixed hashes and no random numbers, so nothing else in the demo moves.
+ */
+function seedPinDemo() {
+  const add = (id: string, hash: string, daysAgo: number, files: string[]) => {
+    const text = COMPARE_FIXTURES[id].shared.files["SKILL.md"];
+    const m: MSkill = {
+      id,
+      name: id,
+      description: /^description: (.*)$/m.exec(text)![1],
+      version: null,
+      license: null,
+      allowedTools: null,
+      files,
+      body: fixtureBody(id, "shared"),
+      canonicalHash: hash,
+      entries: {},
+      source: sourceFor("acme-eng-team/skills", id, daysAgo, `skills/${id}/SKILL.md`),
+      plugin: null,
+      modifiedMs: Date.now() - daysAgo * DAY,
+      upstream: { current: hash, latest: hash, modified: false },
+      extraIssues: [],
+    };
+    for (const aid of DETECTED) if (!agentById(aid)?.readsCanonical) m.entries[aid] = linkEntry(aid, hash);
+    skills.set(id, m);
+  };
+  add("browser-qa", "7c2d9e1", 3, ["checklist.md", "scripts/", "scripts/run.sh"]);
+  add("deploy-checklist", "a51f3b8", 20, ["rollback.md"]);
 }
 
 const LONG_WORDS = [
@@ -392,6 +461,38 @@ if (demo === "empty") {
   /* nothing installed */
 } else if (demo === "stress") seedStress();
 else seedDefault();
+
+// ── projects and pinned skills ───────────────────────────────────────────────
+
+const projectDirOf = (agentId: string) => REGISTRY.find((a) => a.id === agentId)?.projectDir ?? null;
+
+const pinMock = createPinMock({
+  home: HOME,
+  flags: params,
+  empty: demo === "empty",
+  skill: (id) => {
+    const s = skills.get(id);
+    if (!s) return null;
+    const all = agents();
+    return {
+      id: s.id,
+      name: s.name,
+      description: s.description,
+      hash: s.canonicalHash && !s.plugin ? s.canonicalHash : null,
+      source: s.mine ? null : s.source,
+      files: () => {
+        const out: Record<string, string> = { "SKILL.md": detail(id).skillMd };
+        for (const f of s.files) if (!f.endsWith("/")) out[f] = fileText(id, f, s.description);
+        return out;
+      },
+      holders: all
+        .filter((a) => a.detected && ((s.entries[a.id] && s.entries[a.id].kind !== "broken") || (a.readsCanonical && s.canonicalHash)))
+        .map((a) => a.id),
+      seenBy: all.filter((a) => a.detected && isEnabled(a.id) && isVisible(presenceOf(s, a))).map((a) => a.id),
+    };
+  },
+  agents: () => activeAgents().map((a) => ({ id: a.id, name: a.name, projectDir: a.custom ? null : projectDirOf(a.id) })),
+});
 
 // ── derive Inventory ─────────────────────────────────────────────────────────
 
@@ -526,6 +627,7 @@ function toSkill(s: MSkill, all: MAgent[]): Skill {
     origin: originOf(s),
     gitChanges: s.mine ? (repo.isRepo ? repo.changes.filter((c) => c.skillId === s.id).length : null) : null,
     forkedFrom: s.mine ? (s.forkedFrom ?? null) : null,
+    pinnedIn: pinMock.pinnedIn(s.id),
   };
 }
 
@@ -625,6 +727,7 @@ function inventory(): Inventory {
     note: a.note,
     custom: a.custom,
     appPath: a.detected ? (APP_PATHS[a.id] ?? null) : null,
+    projectDir: a.custom ? null : projectDirOf(a.id),
   }));
   return {
     canonicalDir: CANON,
@@ -983,6 +1086,40 @@ function detail(id: string): SkillDetail {
   return { skill: sk, skillMd: `---\n${yaml}\n---\n\n${body}`, body, frontmatter: fm, files };
 }
 
+// ── compare ──────────────────────────────────────────────────────────────────
+
+/** Real copies grouped by content, shared copy first, like the core does. */
+function compareGroups(s: MSkill): MockGroup[] {
+  const all = agents();
+  const groups: MockGroup[] = [];
+  if (s.canonicalHash) {
+    groups.push({ hash: s.canonicalHash, shared: true, role: "shared", locations: [{ path: `${CANON}/${s.id}`, agentIds: [], kind: "canonical" }], agentIds: [] });
+  }
+  for (const [aid, e] of Object.entries(s.entries)) {
+    const a = all.find((x) => x.id === aid);
+    if (!a) continue;
+    if (e.kind === "link") {
+      groups.find((g) => g.shared)?.agentIds.push(aid);
+      continue;
+    }
+    if (e.kind !== "dir" || !e.hash) continue;
+    let g = groups.find((x) => x.hash === e.hash);
+    if (!g) {
+      g = { hash: e.hash, shared: false, role: aid, locations: [], agentIds: [] };
+      groups.push(g);
+    }
+    g.locations.push({ path: entryPath(a, s, e), agentIds: [aid], kind: "directory" });
+    g.agentIds.push(aid);
+  }
+  const shared = groups.find((g) => g.shared);
+  if (shared) for (const a of all) if (a.detected && isEnabled(a.id) && a.readsCanonical) shared.agentIds.push(a.id);
+  const order = all.map((a) => a.id);
+  for (const g of groups) g.agentIds = order.filter((id) => g.agentIds.includes(id));
+  return groups;
+}
+
+const githubSource = (s: MSkill) => (s.source?.kind === "github" && s.canonicalHash ? s.source.source : null);
+
 // ── dispatcher ───────────────────────────────────────────────────────────────
 
 const listeners = new Set<() => void>();
@@ -1009,6 +1146,37 @@ export async function handle(cmd: string, a: A): Promise<unknown> {
       if (path === "SKILL.md") return detail(s.id).skillMd;
       if (!s.files.includes(path)) throw `File not found: ${path}`;
       return fileText(s.id, path, s.description);
+    }
+    case "compare_copies": {
+      await latency(120, 260);
+      const s = must(str(a, "id"));
+      return buildComparison(s.id, s.name, compareGroups(s), githubSource(s));
+    }
+    case "compare_upstream": {
+      const s = must(str(a, "id"));
+      const source = githubSource(s);
+      if (!source) {
+        await latency(30, 80);
+        return { status: "noSource", source: null, matchingHashes: [], message: null };
+      }
+      // One real GitHub request: slow enough to see the "Checking GitHub…" state.
+      await latency(1200, 1800);
+      // ?github=offline shows how the sheet behaves without a network.
+      if (params.get("github") === "offline") {
+        return { status: "unavailable", source, matchingHashes: [], message: `network error fetching ${source}: could not reach api.github.com` };
+      }
+      return { status: "checked", source, matchingHashes: matchingUpstream(s.id, compareGroups(s)), message: null };
+    }
+    case "compare_file": {
+      await latency(60, 160);
+      const s = must(str(a, "id"));
+      const groups = compareGroups(s);
+      const side = (key: string) => {
+        const g = groups.find((x) => x.hash === str(a, key));
+        if (!g) throw `That copy of “${s.id}” changed since the comparison was loaded. Reload it.`;
+        return g;
+      };
+      return buildFileDiff(s.id, str(a, "path"), side("leftHash"), side("rightHash"));
     }
     case "set_link":
       await latency();
@@ -1178,7 +1346,7 @@ export async function handle(cmd: string, a: A): Promise<unknown> {
     }
     case "get_settings":
       await latency(40, 90);
-      return structuredClone(settings);
+      return { ...structuredClone(settings), projects: pinMock.registered() };
     case "save_settings": {
       await latency(120, 220);
       const next = structuredClone(a.settings as Settings);
@@ -1188,7 +1356,7 @@ export async function handle(cmd: string, a: A): Promise<unknown> {
       settings = next;
       // Universal mode keeps everything everywhere, like the real backend.
       if (turnedOn) apply({ adopt: true, link: true, prune: true });
-      return structuredClone(settings);
+      return { ...structuredClone(settings), projects: pinMock.registered() };
     }
     case "set_github_token": {
       await latency(150, 300);
@@ -1198,7 +1366,7 @@ export async function handle(cmd: string, a: A): Promise<unknown> {
         const ir = skills.get("incident-runbook");
         if (ir?.upstream) ir.upstream.error = undefined;
       }
-      return structuredClone(settings);
+      return { ...structuredClone(settings), projects: pinMock.registered() };
     }
     case "reveal":
       await latency(30, 60);
@@ -1208,7 +1376,10 @@ export async function handle(cmd: string, a: A): Promise<unknown> {
       await latency(30, 60);
       toast(`Open`, { description: tildify(str(a, "path")) });
       return null;
-    default:
+    default: {
+      const pinned = pinMock.handle(cmd, a);
+      if (pinned) return pinned;
       throw `Unknown command: ${cmd}`;
+    }
   }
 }

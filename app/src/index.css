@@ -427,6 +427,30 @@ html.tauri.win .sidebar {
   }
 }
 
+/* Pin cards: the same card as the Library's, but not a button, so no lift on hover. */
+.pin-card {
+  background: var(--q-card);
+  border: 0.5px solid var(--q-card-border);
+  box-shadow: var(--q-card-shadow);
+}
+/* A pin that was just created: an accent ring that fades out. */
+.pin-card.flash {
+  animation: q-flash 2.4s var(--ease-out);
+}
+@keyframes q-flash {
+  0%,
+  55% {
+    box-shadow:
+      var(--q-card-shadow),
+      0 0 0 2.5px var(--q-accent);
+  }
+  100% {
+    box-shadow:
+      var(--q-card-shadow),
+      0 0 0 2.5px transparent;
+  }
+}
+
 /* Translucent sticky section bars over the canvas. */
 .section-bar {
   background: var(--q-bar);
@@ -658,4 +682,108 @@ html.tauri.win .sidebar {
 .md-reader blockquote {
   border-left-color: color-mix(in srgb, var(--q-accent) 45%, transparent);
   padding: 2px 0 2px 14px;
+}
+
+/* ── Compare copies: side-by-side diff ─────────────────────────────────────── */
+
+:root {
+  /* Opaque gutters sit over scrolled text, so they are mixed against the surface instead of being translucent. */
+  --q-diff-add: color-mix(in srgb, var(--q-green) 14%, transparent);
+  --q-diff-add-mark: color-mix(in srgb, var(--q-green) 36%, transparent);
+  --q-diff-add-gutter: color-mix(in srgb, var(--q-green) 22%, var(--q-surface));
+  --q-diff-del: color-mix(in srgb, var(--q-red) 11%, transparent);
+  --q-diff-del-mark: color-mix(in srgb, var(--q-red) 30%, transparent);
+  --q-diff-del-gutter: color-mix(in srgb, var(--q-red) 19%, var(--q-surface));
+  --q-diff-gutter: var(--q-surface-2);
+  --q-diff-gap: color-mix(in srgb, var(--q-accent) 8%, var(--q-surface-2));
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --q-diff-add: color-mix(in srgb, var(--q-green) 16%, transparent);
+    --q-diff-add-mark: color-mix(in srgb, var(--q-green) 40%, transparent);
+    --q-diff-add-gutter: color-mix(in srgb, var(--q-green) 24%, var(--q-surface));
+    --q-diff-del: color-mix(in srgb, var(--q-red) 16%, transparent);
+    --q-diff-del-mark: color-mix(in srgb, var(--q-red) 42%, transparent);
+    --q-diff-del-gutter: color-mix(in srgb, var(--q-red) 26%, var(--q-surface));
+    --q-diff-gap: color-mix(in srgb, var(--q-accent) 14%, var(--q-surface-2));
+  }
+}
+
+.diff-pane {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 20px;
+  tab-size: 4;
+  background: var(--q-surface);
+}
+/* The left pane scrolls with the right one; only the right shows the vertical scrollbar. */
+.diff-pane-left::-webkit-scrollbar:vertical {
+  display: none;
+}
+.diff-lines {
+  display: inline-block;
+  min-width: 100%;
+  vertical-align: top;
+}
+.diff-row {
+  display: flex;
+  height: 20px;
+  white-space: pre;
+}
+.diff-pane .diff-no {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  flex: none;
+  width: 46px;
+  padding-right: 9px;
+  text-align: right;
+  color: var(--q-fg-3);
+  background: var(--q-diff-gutter);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.diff-text {
+  flex: 1;
+  padding: 0 14px 0 10px;
+}
+.diff-row.add {
+  background: var(--q-diff-add);
+}
+.diff-row.add .diff-no {
+  background: var(--q-diff-add-gutter);
+  color: var(--q-fg-2);
+}
+.diff-row.add .diff-mark {
+  background: var(--q-diff-add-mark);
+}
+.diff-row.del {
+  background: var(--q-diff-del);
+}
+.diff-row.del .diff-no {
+  background: var(--q-diff-del-gutter);
+  color: var(--q-fg-2);
+}
+.diff-row.del .diff-mark {
+  background: var(--q-diff-del-mark);
+}
+.diff-mark {
+  border-radius: 3px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+/* The other side has no line here. */
+.diff-row.empty {
+  background: repeating-linear-gradient(135deg, transparent 0 5px, var(--q-line) 5px 6px), var(--q-surface-2);
+}
+.diff-row.empty .diff-no {
+  background: var(--q-diff-gutter);
+}
+.diff-row.gap {
+  background: var(--q-diff-gap);
+  color: var(--q-accent-text);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  cursor: default;
 }

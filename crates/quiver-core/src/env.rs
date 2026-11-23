@@ -125,7 +125,17 @@ impl Env {
     /// Shorten a path for display: replace the home prefix with `~`.
     /// Home-relative paths always use `/` (`~/.claude/skills`), like the agents' own docs.
     pub fn display(&self, path: &Path) -> String {
-        match path.strip_prefix(&self.home) {
+        // A resolved path (e.g. /private/tmp/... for /tmp/...) still belongs under ~.
+        let rest = path
+            .strip_prefix(&self.home)
+            .map(Path::to_path_buf)
+            .or_else(|_| {
+                let real = std::fs::canonicalize(&self.home).map_err(|_| ())?;
+                path.strip_prefix(real)
+                    .map(Path::to_path_buf)
+                    .map_err(|_| ())
+            });
+        match rest.as_deref() {
             Ok(rest) if rest.as_os_str().is_empty() => "~".to_string(),
             Ok(rest) => format!("~/{}", rest.to_string_lossy().replace('\\', "/")),
             Err(_) => path.to_string_lossy().into_owned(),

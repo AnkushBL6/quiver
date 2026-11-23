@@ -1,11 +1,11 @@
-import { ArrowDownCircle, Compass, Grid3x3, HeartPulse, Library, Plus, RefreshCw, Settings, User, Users } from "lucide-react";
+import { ArrowDownCircle, Compass, FolderGit2, Grid3x3, HeartPulse, Library, Plus, RefreshCw, Settings, User, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { isTauri } from "../lib/api";
 import { cx, isWindows, mod, shortcut, type View } from "../lib/ui";
 import { useActions, useData, useNav } from "../state/store";
 import { Badge, Tooltip } from "./ui";
 
-/** Sidebar order defines ⌘1…⌘7 (Ctrl+1…Ctrl+7 on Windows). */
+/** Sidebar order defines ⌘1…⌘8 (Ctrl+1…Ctrl+8 on Windows). */
 export const SIDEBAR: { group: string | null; items: { view: View; label: string; icon: ReactNode }[] }[] = [
   {
     group: null,
@@ -22,13 +22,14 @@ export const SIDEBAR: { group: string | null; items: { view: View; label: string
       { view: "agents", label: "Agents", icon: <Users size={15} strokeWidth={1.8} /> },
       { view: "updates", label: "Updates", icon: <ArrowDownCircle size={15} strokeWidth={1.8} /> },
       { view: "health", label: "Health", icon: <HeartPulse size={15} strokeWidth={1.8} /> },
+      { view: "projects", label: "Projects", icon: <FolderGit2 size={15} strokeWidth={1.8} /> },
     ],
   },
 ];
 export const SIDEBAR_ORDER: View[] = SIDEBAR.flatMap((g) => g.items.map((i) => i.view));
 
 export function Sidebar() {
-  const { inventory, updates, scanning, mySkills } = useData();
+  const { inventory, updates, scanning, mySkills, projects } = useData();
   const { rescan } = useActions();
   const { nav, go, openInstall } = useNav();
 
@@ -38,6 +39,8 @@ export function Sidebar() {
     : 0;
   const mineCount = inventory?.skills.filter((s) => s.origin === "mine").length ?? 0;
   const dirty = (mySkills?.changes.length ?? 0) > 0;
+  // Pins that changed, are missing or lost a link, plus project folders that moved away.
+  const pinProblems = projects?.reduce((n, p) => n + p.problemCount + (p.exists ? 0 : 1), 0) ?? 0;
 
   const right: Partial<Record<View, ReactNode>> = {
     library: inventory ? <Count n={inventory.skills.length} /> : null,
@@ -53,6 +56,13 @@ export function Sidebar() {
     ),
     updates: <Badge count={updateCount} />,
     health: <Badge count={issueCount} />,
+    projects: pinProblems ? (
+      <Tooltip content={`${pinProblems} pinned skill${pinProblems === 1 ? "" : "s"} need${pinProblems === 1 ? "s" : ""} attention`} side="right">
+        <span>
+          <Badge count={pinProblems} />
+        </span>
+      </Tooltip>
+    ) : null,
   };
 
   let n = 0;
@@ -79,7 +89,7 @@ export function Sidebar() {
                   key={it.view}
                   active={nav.view === it.view}
                   icon={it.icon}
-                  onClick={() => go(it.view)}
+                  onClick={() => go(it.view, it.view === "projects" ? { selectedId: null } : undefined)}
                   right={right[it.view]}
                   shortcut={`${mod}${n}`}
                 >

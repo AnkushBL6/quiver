@@ -292,6 +292,10 @@ pub fn scan(q: &Quiver) -> Inventory {
         .map(|(id, locs)| build_skill(q, &raw.agents, id, locs, &lock, &state, &mine))
         .collect();
     skills.sort_by_key(|a| a.id.to_lowercase());
+    let mut pinned = crate::pins::pinned_index(q);
+    for s in &mut skills {
+        s.pinned_in = pinned.remove(&s.id).unwrap_or_default();
+    }
 
     let visible = |p: Presence| !matches!(p, Presence::Absent | Presence::Broken);
     let agents: Vec<AgentInfo> = raw
@@ -566,6 +570,7 @@ fn build_skill(
             None
         },
         forked_from: state.skills.get(id).and_then(|s| s.forked_from.clone()),
+        pinned_in: vec![],
     }
 }
 

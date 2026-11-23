@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ArrowDownToLine, ArrowRight, Check, Copy, FolderSync, GitBranch, HeartPulse, Layers, PenLine, SearchCheck,
-  Plus, RefreshCw, ShieldCheck, Sparkles, Terminal, Trash2, Zap,
+  Pin, Plus, RefreshCw, ShieldCheck, Sparkles, Terminal, Trash2, Zap,
 } from "lucide-react";
 import registry from "../../crates/quiver-core/agents.json";
 
@@ -355,6 +355,7 @@ const FEATURES = [
   { icon: Layers, title: "Every skill, one library", body: "Search and filter everything installed on your computer. A matrix view shows exactly which agent sees which skill, and you can toggle any cell." },
   { icon: Sparkles, title: "Universal mode", body: "Turn it on once and every skill stays in every agent. New installs, skills added to any one agent, and newly installed agents are all handled for you. No checkboxes." },
   { icon: PenLine, title: "Your own skills, kept apart", body: "Skills you write live in ~/Skills, a git repo you own. Every agent sees them, updates never touch them, and Quiver commits, pulls and pushes for you. Fork any installed skill with Make it mine." },
+  { icon: Pin, title: "Pin a skill to a project", body: "Keep a release branch on the exact skill version it was tested with while your other projects use the shared one. Pins live in the repo and CI checks them with quiver pins verify." },
   { icon: SearchCheck, title: "Finds lost sources", body: "Skills copied in by hand never update. Quiver finds where each one came from and checks it against the repo's git tree hash, then tracks it for updates." },
   { icon: Zap, title: "Install from anywhere", body: "Install from owner/repo, GitHub links, skills.sh, any git URL, a folder or a .zip. Drag and drop works too. Each new skill is linked to every agent you use." },
   { icon: RefreshCw, title: "Updates", body: "One GitHub request per repo checks every skill. Quiver follows skills that moved upstream and asks before overwriting your local edits." },

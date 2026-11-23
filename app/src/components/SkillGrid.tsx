@@ -106,7 +106,7 @@ export function GroupIcon({ group, size = 24, agent }: { group: SourceGroup; siz
 
 // ── Badges ───────────────────────────────────────────────────────────────────
 
-export function Tag({ tone = "neutral", icon, children, title }: { tone?: "neutral" | "accent" | "green" | "red" | "amber"; icon?: ReactNode; children: ReactNode; title?: string }) {
+export function Tag({ tone = "neutral", icon, children, title }: { tone?: "neutral" | "accent" | "green" | "red" | "amber"; icon?: ReactNode; children: ReactNode; title?: ReactNode }) {
   const tones = {
     neutral: "bg-[var(--q-hover)] text-fg-2 dark:bg-[rgba(255,255,255,0.07)]",
     accent: "bg-accent-soft text-accent-text",

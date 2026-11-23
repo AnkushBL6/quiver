@@ -69,6 +69,145 @@ async fn read_skill_file(app: AppHandle, id: String, path: String) -> Res<String
     .await
 }
 
+/// Group a conflicting skill's copies into versions and compare their files. Local only.
+#[tauri::command]
+async fn compare_copies(app: AppHandle, id: String) -> Res<CopyComparison> {
+    blocking(&app, move |st| {
+        q(st).compare_copies(&id).map_err(|e| format!("{e:#}"))
+    })
+    .await
+}
+
+/// Which versions equal the latest upstream folder on GitHub. Network, short timeouts;
+/// failures come back as `status: "unavailable"`, never as a rejection.
+#[tauri::command]
+async fn compare_upstream(app: AppHandle, id: String) -> Res<UpstreamCheck> {
+    blocking(&app, move |st| {
+        q(st).compare_upstream(&id).map_err(|e| format!("{e:#}"))
+    })
+    .await
+}
+
+/// Side-by-side line diff of one file between two versions (picked by content hash).
+#[tauri::command]
+async fn compare_file(
+    app: AppHandle,
+    id: String,
+    path: String,
+    left_hash: String,
+    right_hash: String,
+) -> Res<FileDiff> {
+    blocking(&app, move |st| {
+        q(st)
+            .compare_file(&id, &path, &left_hash, &right_hash)
+            .map_err(|e| format!("{e:#}"))
+    })
+    .await
+}
+
+// ---------- Pinned skills (per-project) ----------
+
+#[tauri::command]
+async fn projects_list(app: AppHandle) -> Res<Vec<ProjectSummary>> {
+    blocking(&app, |st| Ok(q(st).projects_list())).await
+}
+
+/// Register a project (its git root) so it is listed and skills show where they are pinned.
+#[tauri::command]
+async fn project_add(app: AppHandle, path: String) -> Res<ProjectSummary> {
+    blocking(&app, move |st| {
+        let _guard = st.op.lock().map_err(err)?;
+        let mut quiver = st.quiver.write().map_err(err)?;
+        quiver.project_add(&path).map_err(|e| format!("{e:#}"))
+    })
+    .await
+}
+
+/// Unregister a project. Never touches any file in it.
+#[tauri::command]
+async fn project_remove(app: AppHandle, path: String) -> Res<()> {
+    blocking(&app, move |st| {
+        let _guard = st.op.lock().map_err(err)?;
+        let mut quiver = st.quiver.write().map_err(err)?;
+        quiver.project_remove(&path).map_err(|e| format!("{e:#}"))
+    })
+    .await
+}
+
+#[tauri::command]
+async fn project_detail(app: AppHandle, path: String) -> Res<ProjectDetail> {
+    blocking(&app, move |st| {
+        q(st).project_detail(&path).map_err(|e| format!("{e:#}"))
+    })
+    .await
+}
+
+#[tauri::command]
+async fn pin_check_name(app: AppHandle, project: String, name: String) -> Res<NameCheck> {
+    blocking(&app, move |st| Ok(q(st).pin_check_name(&project, &name))).await
+}
+
+#[tauri::command]
+async fn pin_create(app: AppHandle, request: PinRequest) -> Res<ProjectDetail> {
+    blocking(&app, move |st| mutate(st, |q| q.pin_create(&request))).await
+}
+
+/// Re-pin from the current shared copy (`git_ref` null) or from GitHub at a ref.
+#[tauri::command]
+async fn pin_update(
+    app: AppHandle,
+    project: String,
+    name: String,
+    git_ref: Option<String>,
+) -> Res<ProjectDetail> {
+    blocking(&app, move |st| {
+        mutate(st, |q| q.pin_update(&project, &name, git_ref.as_deref()))
+    })
+    .await
+}
+
+#[tauri::command]
+async fn pin_remove(app: AppHandle, project: String, name: String) -> Res<ProjectDetail> {
+    blocking(&app, move |st| {
+        mutate(st, |q| q.pin_remove(&project, &name))
+    })
+    .await
+}
+
+/// Recreate missing or wrong links and copies from the pinned folders.
+#[tauri::command]
+async fn pin_sync(app: AppHandle, project: String) -> Res<ProjectDetail> {
+    blocking(&app, move |st| mutate(st, |q| q.pin_sync(&project))).await
+}
+
+/// The shared copy against the pin, with the pin's rewritten name/description undone.
+#[tauri::command]
+async fn pin_compare(app: AppHandle, project: String, name: String) -> Res<CopyComparison> {
+    blocking(&app, move |st| {
+        q(st)
+            .pin_compare(&project, &name)
+            .map_err(|e| format!("{e:#}"))
+    })
+    .await
+}
+
+#[tauri::command]
+async fn pin_compare_file(
+    app: AppHandle,
+    project: String,
+    name: String,
+    path: String,
+    left_hash: String,
+    right_hash: String,
+) -> Res<FileDiff> {
+    blocking(&app, move |st| {
+        q(st)
+            .pin_compare_file(&project, &name, &path, &left_hash, &right_hash)
+            .map_err(|e| format!("{e:#}"))
+    })
+    .await
+}
+
 #[tauri::command]
 async fn set_link(app: AppHandle, id: String, agent_id: String, enabled: bool) -> Res<Inventory> {
     blocking(&app, move |st| {
@@ -217,6 +356,10 @@ async fn get_settings(app: AppHandle) -> Res<Settings> {
 async fn save_settings(app: AppHandle, settings: Settings) -> Res<Settings> {
     let view = blocking(&app, move |st| {
         let mut guard = st.quiver.write().map_err(err)?;
+        // Projects change only through project_add / project_remove, so a settings
+        // object that was loaded earlier can't undo a registration.
+        let mut settings = settings;
+        settings.projects = guard.settings.projects.clone();
         guard
             .save_settings(settings)
             .map_err(|e| format!("{e:#}"))?;
@@ -329,11 +472,16 @@ async fn agent_icon(app: AppHandle, agent_id: String) -> Res<Option<String>> {
 /// Only paths inside the user's home may be revealed/opened.
 fn guard_path(st: &AppState, path: &str) -> Res<PathBuf> {
     let p = PathBuf::from(path);
-    let home = q(st).env.home;
-    if !fsutil::starts_with(&p, &home)
-        && !fsutil::starts_with(&fsutil::normalize(&p), &fsutil::normalize(&home))
+    let quiver = q(st);
+    // Allowed: the home folder, plus registered projects (a repo can live outside home).
+    let mut roots = vec![quiver.env.home.clone()];
+    roots.extend(quiver.settings.projects.iter().map(PathBuf::from));
+    let norm = fsutil::normalize(&p);
+    if !roots
+        .iter()
+        .any(|r| fsutil::starts_with(&p, r) || fsutil::starts_with(&norm, &fsutil::normalize(r)))
     {
-        return Err("path is outside your home folder".into());
+        return Err("path is outside your home folder and your projects".into());
     }
     Ok(p)
 }
@@ -453,6 +601,20 @@ pub fn run() {
             scan,
             skill_detail,
             read_skill_file,
+            compare_copies,
+            compare_upstream,
+            compare_file,
+            projects_list,
+            project_add,
+            project_remove,
+            project_detail,
+            pin_check_name,
+            pin_create,
+            pin_update,
+            pin_remove,
+            pin_sync,
+            pin_compare,
+            pin_compare_file,
             set_link,
             set_link_all,
             set_link_agent,

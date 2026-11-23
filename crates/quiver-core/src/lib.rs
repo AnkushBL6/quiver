@@ -6,12 +6,14 @@
 //! symlink on macOS and Linux, a junction on Windows (see [`fsutil`]).
 
 pub mod agents;
+pub mod compare;
 pub mod env;
 pub mod fsutil;
 pub mod github;
 mod mine;
 pub mod model;
 mod ops;
+pub mod pins;
 pub mod proc;
 pub mod scan;
 pub mod search;

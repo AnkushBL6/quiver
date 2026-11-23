@@ -42,7 +42,8 @@ Quiver fixes that, on macOS and Windows:
 - **Make existing skills universal.** One click adopts skills that are stuck in one agent's folder and shares them with all the others.
 - **Updates that actually work.** Quiver checks GitHub sources (one API call per repo), follows skills that moved upstream, and warns before overwriting your local edits.
 - **Find lost sources.** Skills copied in by hand have no upstream, so they never update. Quiver finds where each one came from and verifies it against the repo's git tree hash, so it reports "identical to anthropics/skills" as a fact, not a guess. Then it tracks them for updates.
-- **Health checks.** Finds broken links, conflicting copies and malformed `SKILL.md` frontmatter, and fixes them.
+- **Health checks.** Finds broken links, conflicting copies and malformed `SKILL.md` frontmatter, and fixes them. For conflicting copies, Compare shows them side by side (newest, matches GitHub, edited since install) with a line diff, so you can see which one has the fix before keeping it.
+- **Pin a skill for one project.** A release branch can keep its own fixed copy of a skill, committed in the repo and checked in CI, while every other project keeps using the shared one. See [Pin a skill for one project](#pin-a-skill-for-one-project).
 - **Install from anywhere.** `owner/repo`, GitHub URLs (tree/blob), skills.sh links, any git URL (GitLab, Bitbucket, SSH), local folders and `.zip` files. You can also drag and drop them onto the window.
 - **Discover.** Search the [skills.sh](https://skills.sh) directory from inside the app.
 - **Safe by design.** Nothing is deleted outright: replaced folders go to the Trash (the Recycle Bin on Windows), and every download is verified against GitHub's git blob SHA-1.
@@ -78,7 +79,7 @@ Quiver fixes that, on macOS and Windows:
 cargo install --git https://github.com/AnkushBL6/quiver quiver-cli
 ```
 
-or download a prebuilt binary from Releases: `quiver-cli-macos-universal.tar.gz` (macOS) or `quiver-cli-windows-x64.zip` (contains `quiver.exe`; put it on your `PATH`).
+or download a prebuilt binary from Releases: `quiver-cli-macos-universal.tar.gz` (macOS), `quiver-cli-linux-x64.tar.gz` (Linux, for CI machines) or `quiver-cli-windows-x64.zip` (contains `quiver.exe`; put it on your `PATH`).
 
 ### Windows
 
@@ -104,6 +105,7 @@ quiver adopt <skill>              # make a stranded skill universal
 quiver link <skill> <agent>       # / unlink
 quiver outdated && quiver update  # check and apply updates
 quiver doctor [--apply]           # find and fix broken links, missing links, unmanaged skills
+quiver diff <skill>               # conflicting copies: which has the fix? versions + coloured diff
 quiver universal on               # keep every skill in every agent automatically
 quiver search <query>             # search skills.sh
 quiver new <name> -d "…"          # create a skill of your own in ~/Skills
@@ -113,9 +115,65 @@ quiver mine commit -m "…"         # / quiver mine push / quiver mine pull
 quiver edit <skill>               # open in your editor
 quiver list --mine
 quiver sources [--apply]          # find (and track) the upstream of skills with no source
+quiver pin <skill> [--as NAME]    # pin a skill for this project (see below)
+quiver pins [verify|update|sync]  # list, check (CI), re-pin or repair this project's pins
+quiver unpin <name>
 ```
 
 Every command accepts `--json`.
+
+## Pin a skill for one project
+
+A release branch should keep using the version of `browser-qa` it was tested with, while every other project follows the shared one in `~/.agents/skills`. A **pin** is a fixed copy of the skill inside the repo, under its own name, plus a lock file so CI can check that nobody changed it by accident.
+
+```sh
+cd my-repo
+quiver pin browser-qa --as browser-qa-release   # snapshot of your shared copy
+quiver pin browser-qa --ref v1.4.0              # or a tag, branch or commit of its GitHub source
+quiver pins                                     # the pins in this repo and their state
+quiver pins verify                              # for CI: exit 1 if a pin was edited or is incomplete
+quiver pins update browser-qa-release           # re-pin from your shared copy (or from --ref REF)
+quiver pins update browser-qa-release --accept  # keep a deliberate edit as the new pin
+quiver pins sync                                # recreate missing links or copies
+quiver unpin browser-qa-release                 # folders go to the Trash
+```
+
+`-C DIR` runs any of these on another folder; the default is the git root of the current one. Pass `--agents claude-code,cursor` to choose who gets the pin (default: every detected agent).
+
+Commit everything Quiver wrote:
+
+```
+.agents/skills/browser-qa-release/   the pinned copy: real files, nothing linked inside
+.claude/skills/browser-qa-release    a relative symlink to it (a full copy with --copy)
+quiver-pins.json                     hashes, where it came from, the commit for --ref; no personal paths
+```
+
+Agents that read `.agents/skills` themselves (Codex, Cursor, Gemini CLI, Copilot, OpenCode and others) need no link. In the pinned `SKILL.md` only `name` and `description` change: the name becomes the pin's, and the description is prefixed with "Pinned copy of browser-qa for this repository; use it instead of browser-qa here." Everything else is byte-identical to the source. Your shared skill and every global folder are never touched.
+
+**Why does the pin get its own name?** Claude Code decides between skills with the same name by where they came from, and a personal skill wins over a project one. From the Claude Code docs, [Resolve skills that share a name](https://code.claude.com/docs/en/skills):
+
+> Enterprise over personal, and personal over project. With `deploy` in both `~/.claude/skills/` and the project's `.claude/skills/`, `/deploy` runs the personal one
+
+So a project pin called `browser-qa` would be ignored on every machine that has the shared `browser-qa`: the opposite of what a pin is for. Quiver refuses a name that exists in any agent's global skills folder (the default is `<skill>-pinned`), so which skill runs never depends on an agent's precedence rules. Invoke the pin by its own name, `/browser-qa-release`.
+
+**States.** `ok`; `modified` (a file changed, was added or removed; line endings don't count); `missing` (the folder is gone); `links` (the content is fine but an agent's link or copy is missing or wrong). Whether your shared copy has moved on since the pin was made is shown too, but it never fails a check.
+
+### Check pins in CI
+
+`quiver pins verify` is offline, needs no `~/.agents` and no Quiver install beyond the binary. It exits 0 when every pin matches `quiver-pins.json` and 1 otherwise, and prints the changed files and how to fix them (`git checkout -- <folder>` to undo, `quiver pins update <name> [--accept]` to accept). A GitHub Actions step on Linux:
+
+```yaml
+- name: Verify pinned skills
+  run: |
+    curl -fsSL https://github.com/AnkushBL6/quiver/releases/latest/download/quiver-cli-linux-x64.tar.gz | tar xz
+    ./quiver pins verify
+```
+
+(Run it after `actions/checkout`; it checks the repo it is started in. Add `--json` for machine-readable output.) Hashes are the same on macOS, Linux and Windows: files are compared by content with CRLF folded to LF, so a checkout with different line endings still verifies.
+
+### Windows
+
+Git checks symlinks out as plain text files on Windows unless `core.symlinks` is on (which needs Developer Mode or admin rights). For a repo used on Windows, pin with **copy mode**: `quiver pin browser-qa --as browser-qa-release --copy` writes a full copy for each agent folder instead of a link. `quiver pins verify` flags a symlink that was checked out as a text file and tells you to switch to copy mode.
 
 ## Supported agents
 
@@ -150,7 +208,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Roadmap
 
-- Project-level skills (`.claude/skills`, `.agents/skills` in repos)
 - `quiver://` deep links for one-click installs from websites
 - Self-updating app (Tauri updater) and Homebrew cask
 - Linux desktop build (the core and CLI already build there)

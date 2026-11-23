@@ -4,6 +4,9 @@
   Creates a skill, syncs it to two agents, breaks things on purpose, runs
   `quiver doctor`, and asserts that the links on disk really are junctions that
   resolve (and, with links disabled, that agents get real copies instead).
+  Then pins a skill in copy mode inside a temp git repo and checks that
+  `quiver pins verify` passes, fails after an edit, ignores a CRLF-only change,
+  and that unpin cleans up.
 
   Never touches the real profile: USERPROFILE points at a temp folder for this
   process and everything it starts.
@@ -41,6 +44,16 @@ function Quiver-Run([string[]]$QArgs) {
   if ($LASTEXITCODE -ne 0) { throw "quiver $($QArgs -join ' ') exited with $LASTEXITCODE`n$out" }
   Write-Host $out.TrimEnd()
   return $out
+}
+
+# Runs quiver and returns its exit code, whatever it is. The output is echoed and kept in $script:LastOut.
+$script:LastOut = ''
+function Quiver-Code([string[]]$QArgs) {
+  Write-Host "> quiver $($QArgs -join ' ')"
+  $script:LastOut = (& $Quiver @QArgs 2>&1 | Out-String)
+  $code = $LASTEXITCODE
+  Write-Host $script:LastOut.TrimEnd()
+  return $code
 }
 
 # Runs `quiver ... --json` and parses stdout as JSON.
@@ -192,6 +205,62 @@ if ($canSymlink) {
 } else {
   Write-Host '  skipped: this account may not create symlinks (needs Developer Mode or admin)'
 }
+
+Write-Host "`n== pin a skill for one project (copy mode, inside a git repo)"
+$repo = Join-Path $profileDir 'repo'
+git init -q $repo
+if ($LASTEXITCODE -ne 0) { throw 'git init failed' }
+Quiver-Run 'pin','e2e-skill','--as','e2e-skill-pinned','--copy','-C',$repo | Out-Null
+$pinDir = Join-Path $repo '.agents\skills\e2e-skill-pinned'
+$pinCopy = Join-Path $repo '.claude\skills\e2e-skill-pinned'
+$pinSkillMd = Join-Path $pinDir 'SKILL.md'
+$pinLock = Join-Path $repo 'quiver-pins.json'
+Check (Test-Path -LiteralPath $pinSkillMd) 'the pinned copy has a SKILL.md'
+Check ([IO.File]::ReadAllText($pinSkillMd) -match 'name: e2e-skill-pinned') 'its frontmatter name is the pin name'
+Check ((Link-Type $pinCopy) -eq 'None') 'claude-code gets a real copy, not a link'
+Check (Test-Path -LiteralPath (Join-Path $pinCopy 'SKILL.md')) 'and the copy has the files'
+Check (Test-Path -LiteralPath $pinLock) 'the lock file was written'
+$lockText = [IO.File]::ReadAllText($pinLock)
+Check (-not ($lockText -match '[A-Za-z]:\\') -and -not $lockText.Contains($profileDir)) 'the lock holds no absolute paths'
+Check (-not (Exists-Entry (Join-Path $store 'e2e-skill-pinned'))) 'the shared store was not touched'
+
+Write-Host "`n== pins verify needs no home folder"
+$bareHome = Join-Path $base ("quiver-bare-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
+$sandboxProfile = $env:USERPROFILE
+$env:USERPROFILE = $bareHome
+try { $code = Quiver-Code 'pins','verify','-C',$repo } finally { $env:USERPROFILE = $sandboxProfile }
+Check ($code -eq 0) 'verify passes in a checkout with no home folder'
+Check (-not (Test-Path -LiteralPath $bareHome)) 'and creates nothing outside the project'
+
+Write-Host "`n== an edit makes verify fail"
+$original = [IO.File]::ReadAllText($pinSkillMd)
+[IO.File]::WriteAllText($pinSkillMd, $original + "edited`n")
+$code = Quiver-Code 'pins','verify','-C',$repo
+Check ($code -eq 1) 'verify exits 1 after an edit'
+Check ($script:LastOut -match 'SKILL\.md') 'and names the changed file'
+Check ($script:LastOut -match 'git checkout -- \.agents/skills/e2e-skill-pinned') 'and says how to undo it'
+
+Write-Host "`n== a CRLF-only change still verifies"
+[IO.File]::WriteAllText($pinSkillMd, ($original -replace "`r?`n", "`r`n"))
+Check ([IO.File]::ReadAllText($pinSkillMd).Contains("`r`n")) 'the file really has CRLF line endings now'
+$code = Quiver-Code 'pins','verify','-C',$repo
+Check ($code -eq 0) 'verify ignores line endings'
+
+Write-Host "`n== a missing copy is a failure that pins sync repairs"
+Remove-Item -LiteralPath $pinCopy -Recurse -Force
+$code = Quiver-Code 'pins','verify','-C',$repo
+Check ($code -eq 1) 'verify exits 1 when the copy is gone'
+Quiver-Run 'pins','sync','-C',$repo | Out-Null
+Check (Test-Path -LiteralPath (Join-Path $pinCopy 'SKILL.md')) 'pins sync restored the copy'
+$code = Quiver-Code 'pins','verify','-C',$repo
+Check ($code -eq 0) 'verify passes again'
+
+Write-Host "`n== unpin"
+Quiver-Run 'unpin','e2e-skill-pinned','-C',$repo | Out-Null
+Check (-not (Exists-Entry $pinDir)) 'the pinned folder is gone'
+Check (-not (Exists-Entry $pinCopy)) 'the copy is gone'
+Check (-not (Test-Path -LiteralPath $pinLock)) 'the lock file is deleted with the last pin'
+Check (Test-Path -LiteralPath $skillMd) 'the shared skill is untouched'
 
 Write-Host "`n== remove"
 Quiver-Run 'remove','e2e-skill' | Out-Null

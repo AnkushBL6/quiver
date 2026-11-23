@@ -16,8 +16,10 @@ import {
   FileText,
   Folder,
   FolderOpen,
+  GitCompareArrows,
   MoreHorizontal,
   Pencil,
+  Pin,
   Search,
   Share2,
   Trash2,
@@ -27,9 +29,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { api, errorMessage } from "../lib/api";
-import type { AgentInfo, Issue, Skill, SkillDetail } from "../lib/types";
+import type { AgentInfo, Issue, PinRef, Skill, SkillDetail } from "../lib/types";
 import {
   PRESENCE,
+  canPin,
   cx,
   fileManager,
   formatBytes,
@@ -47,12 +50,13 @@ import {
   visibleAgents,
 } from "../lib/ui";
 import { usePersistent } from "../lib/hooks";
-import { effectivePresence, useActions, useData } from "../state/store";
+import { effectivePresence, useActions, useData, useNav } from "../state/store";
 import { useSkillActions } from "../state/skillActions";
 import { AgentIcon } from "../components/identity";
 import { GroupIcon } from "../components/SkillGrid";
 import { Button, IconButton, InfoList, Segmented, Skeleton, Spinner, Switch, Tooltip } from "../components/ui";
 import { MenuItem, MenuSeparator, Popover, Sheet } from "../components/overlay";
+import { CompareSheet } from "./CompareSheet";
 
 /** Fetch SKILL.md + file list; refetch on each scan but keep showing the old one meanwhile. */
 export function useSkillDetail(id: string) {
@@ -165,6 +169,7 @@ function SheetBody({
 }) {
   const { inventory, updates, overrides, mySkills } = useData();
   const { run } = useActions();
+  const { go, openPinSheet } = useNav();
   const { remove, makeMine, openInEditor, reveal, update, shareWithAll, editorName, mineDir } = useSkillActions();
   const { detail, error: detailError } = useSkillDetail(skill.id);
   const [busy, setBusy] = useState<string | null>(null);
@@ -195,8 +200,9 @@ function SheetBody({
   };
   const doAdopt = async (fromPath?: string) => {
     setBusy("adopt");
-    await run(() => api.adopt(skill.id, fromPath), fromPath ? `Kept ${tildify(fromPath)}` : `${skill.name} is now shared`);
+    const ok = await run(() => api.adopt(skill.id, fromPath), fromPath ? `Kept ${tildify(fromPath)}` : `${skill.name} is now shared`);
     setBusy(null);
+    return ok;
   };
   const doUpdate = async () => {
     setBusy("update");
@@ -338,6 +344,7 @@ function SheetBody({
             <div className="min-w-0 flex-1">
               <h2 className="selectable text-[24px] leading-[30px] font-semibold tracking-[-0.022em] break-words">{skill.name}</h2>
               <div className="mt-0.5 text-[13px] text-fg-2">{from}</div>
+              {skill.pinnedIn.length > 0 && <PinnedIn refs={skill.pinnedIn} onOpen={(project) => go("projects", { selectedId: project })} />}
             </div>
           </div>
           <p className={cx("selectable mt-4 max-w-[680px] text-[15px] leading-[1.55]", skill.description ? "text-fg" : "text-fg-3")}>
@@ -353,6 +360,7 @@ function SheetBody({
               canMakeMine={canMakeMine}
               onRemove={() => void doRemove()}
               onMakeMine={() => void makeMine(skill)}
+              onPin={canPin(skill) ? () => openPinSheet({ skill: skill.id }) : undefined}
             />
           </div>
 
@@ -402,6 +410,7 @@ function MoreMenu({
   canMakeMine,
   onRemove,
   onMakeMine,
+  onPin,
 }: {
   skill: Skill;
   shown: Set<string>;
@@ -409,6 +418,8 @@ function MoreMenu({
   canMakeMine: boolean;
   onRemove: () => void;
   onMakeMine: () => void;
+  /** Absent when the skill has no shared copy to pin. */
+  onPin?: () => void;
 }) {
   const { reveal } = useSkillActions();
   const ref = useRef<HTMLButtonElement>(null);
@@ -458,12 +469,40 @@ function MoreMenu({
             Make It Mine…
           </MenuItem>
         )}
+        {onPin && (
+          <MenuItem icon={<Pin size={13} />} onSelect={pick(onPin)}>
+            Pin to a Project…
+          </MenuItem>
+        )}
         <MenuSeparator />
         <MenuItem icon={<Trash2 size={13} />} danger disabled={skill.readOnly} onSelect={pick(onRemove)} hint={removeHint}>
           Move to {trashName}…
         </MenuItem>
       </Popover>
     </>
+  );
+}
+
+/** "Pinned in acme-web (as browser-qa-release)": projects that keep their own copy of this skill. */
+function PinnedIn({ refs, onOpen }: { refs: PinRef[]; onOpen: (project: string) => void }) {
+  const shown = refs.slice(0, 2);
+  const more = refs.length - shown.length;
+  return (
+    <div className="mt-0.5 flex flex-wrap items-center gap-x-1 text-[13px] leading-[19px] text-fg-2">
+      <Pin size={12} strokeWidth={2.2} className="mr-0.5 shrink-0 text-fg-3" aria-hidden />
+      <span>Pinned in</span>
+      {shown.map((r, i) => (
+        <span key={`${r.project}\u0000${r.pin}`} className="inline-flex items-center gap-1">
+          <button type="button" onClick={() => onOpen(r.project)} className="rounded text-accent-text hover:underline" title={`Open ${r.projectName}`}>
+            {r.projectName}
+          </button>
+          <span>(as <span className="font-mono text-[12px]">{r.pin}</span>)</span>
+          {r.state !== "ok" && <AlertTriangle size={12} strokeWidth={2.2} className="shrink-0 text-amber" aria-label="Needs attention" />}
+          {i < shown.length - 1 && more === 0 ? <span>and</span> : i < shown.length - 1 ? <span>,</span> : null}
+        </span>
+      ))}
+      {more > 0 && <span>and {more} more</span>}
+    </div>
   );
 }
 
@@ -637,12 +676,13 @@ function Problem({
   skill: Skill;
   agents: AgentInfo[];
   busy: string | null;
-  onAdopt: (fromPath?: string) => Promise<void>;
+  onAdopt: (fromPath?: string) => Promise<boolean>;
   onRemove: () => Promise<void>;
 }) {
   const { toggleLink } = useActions();
   const { openInEditor } = useSkillActions();
   const [expanded, setExpanded] = useState(issue.kind === "conflict");
+  const [comparing, setComparing] = useState(false);
   const error = issue.severity === "error";
   const Icon = error ? AlertOctagon : AlertTriangle;
   const broken = skill.locations.filter((l) => l.kind === "broken");
@@ -662,7 +702,14 @@ function Problem({
   } else if (issue.kind === "missingSkillMd") {
     fix = <Button onClick={() => void onRemove()}>Remove</Button>;
   } else if (issue.kind === "conflict") {
-    fix = <Button onClick={() => setExpanded((e) => !e)}>{expanded ? "Hide Copies" : "Choose…"}</Button>;
+    fix = (
+      <div className="flex gap-2">
+        <Button variant="primary" icon={<GitCompareArrows size={12} />} onClick={() => setComparing(true)}>
+          Compare
+        </Button>
+        <Button onClick={() => setExpanded((e) => !e)}>{expanded ? "Hide Copies" : "Choose…"}</Button>
+      </div>
+    );
   } else if (skill.primaryPath && !skill.readOnly) {
     fix =
       skill.origin === "mine" ? (
@@ -700,13 +747,14 @@ function Problem({
               <Button size="sm" onClick={() => void api.openPath(joinPath(l.path, "SKILL.md"))}>
                 View
               </Button>
-              <Button size="sm" variant="primary" loading={busy === "adopt"} onClick={() => void onAdopt(l.path)}>
+              <Button size="sm" loading={busy === "adopt"} onClick={() => void onAdopt(l.path)}>
                 Keep This One
               </Button>
             </div>
           ))}
         </div>
       )}
+      {issue.kind === "conflict" && <CompareSheet skill={comparing ? skill : null} onClose={() => setComparing(false)} onKeep={onAdopt} />}
     </div>
   );
 }

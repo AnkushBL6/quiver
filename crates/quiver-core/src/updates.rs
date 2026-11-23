@@ -15,22 +15,30 @@ use rayon::prelude::*;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-struct Tracked {
-    id: String,
-    source: SkillSource,
-    current: Option<String>,
-    installed_hash: Option<String>,
-    live_link: bool,
+pub(crate) struct Tracked {
+    pub(crate) id: String,
+    pub(crate) source: SkillSource,
+    /// Upstream revision recorded at install (tree sha for GitHub, content hash for local sources).
+    pub(crate) current: Option<String>,
+    /// Content hash right after the last install or update.
+    pub(crate) installed_hash: Option<String>,
+    pub(crate) live_link: bool,
 }
 
 impl Quiver {
     fn tracked(&self) -> Vec<Tracked> {
+        self.tracked_where(|_| true)
+    }
+
+    /// Like `tracked`, for the skills `keep` accepts.
+    pub(crate) fn tracked_where(&self, keep: impl Fn(&str) -> bool) -> Vec<Tracked> {
         let raw = raw_scan(self);
         let lock = Lock::load(&self.env);
         let state = State::load(&self.env);
         let my_norm = self.my_norm();
         raw.by_id
             .iter()
+            .filter(|(id, _)| keep(id))
             .filter_map(|(id, locs)| {
                 let canon = locs.iter().find(|l| l.kind == LocationKind::Canonical)?;
                 // The user's own skills are never updated from anywhere.

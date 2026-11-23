@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowDownToLine, Compass, CornerDownLeft, FileText, Grid3x3, HeartPulse, Library, Plus, RefreshCw, Search, Settings, SquarePen, User, Users } from "lucide-react";
+import { ArrowDownToLine, Compass, CornerDownLeft, FileText, FolderGit2, Grid3x3, HeartPulse, Library, Pin, Plus, RefreshCw, Search, Settings, SquarePen, User, Users } from "lucide-react";
 import { cx, mod, shortcut, type View } from "../lib/ui";
 import { useActions, useData, useNav } from "../state/store";
 import { AgentAvatar } from "./identity";
@@ -40,7 +40,7 @@ function score(text: string, q: string): number {
 function Palette({ close }: { close: () => void }) {
   const { inventory } = useData();
   const { rescan, checkUpdates } = useActions();
-  const { go, openInstall, setNewSkillOpen } = useNav();
+  const { go, openInstall, setNewSkillOpen, openPinSheet } = useNav();
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
@@ -57,6 +57,7 @@ function Palette({ close }: { close: () => void }) {
     const cmds: Cmd[] = [
       { id: "new", group: "Actions", label: "New Skill…", icon: <SquarePen size={14} />, hint: `${mod}N`, keywords: "create write my own", run: () => setNewSkillOpen(true) },
       { id: "install", group: "Actions", label: "Install Skill…", icon: <Plus size={14} />, hint: shortcut("N", { shift: true }), keywords: "add github", run: () => openInstall() },
+      { id: "pin", group: "Actions", label: "Pin a Skill to a Project…", icon: <Pin size={14} />, keywords: "project repo version release branch fix lock", run: () => openPinSheet() },
       { id: "rescan", group: "Actions", label: "Rescan skill folders", icon: <RefreshCw size={14} />, hint: `${mod}R`, keywords: "refresh reload", run: () => void rescan() },
       { id: "check", group: "Actions", label: "Check for updates", icon: <ArrowDownToLine size={14} />, run: () => { go("updates"); void checkUpdates(true); } },
       { id: "universal", group: "Actions", label: "Make everything universal…", icon: <HeartPulse size={14} />, keywords: "sync adopt health fix", run: () => go("health") },
@@ -67,6 +68,7 @@ function Palette({ close }: { close: () => void }) {
       nav("agents", "Agents", <Users size={14} />),
       nav("updates", "Updates", <ArrowDownToLine size={14} />),
       nav("health", "Health", <HeartPulse size={14} />),
+      nav("projects", "Projects", <FolderGit2 size={14} />),
       nav("settings", "Settings", <Settings size={14} />),
     ];
     for (const s of inventory?.skills ?? []) {
@@ -91,7 +93,7 @@ function Palette({ close }: { close: () => void }) {
       });
     }
     return cmds;
-  }, [inventory, go, openInstall, rescan, checkUpdates, setNewSkillOpen]);
+  }, [inventory, go, openInstall, rescan, checkUpdates, setNewSkillOpen, openPinSheet]);
 
   const results = useMemo(() => {
     const query = q.trim().toLowerCase();

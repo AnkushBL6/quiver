@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Toaster } from "sonner";
-import { FileArchive } from "lucide-react";
+import { FileArchive, FolderGit2 } from "lucide-react";
 import { onFileDrop } from "./lib/api";
 import { hasMod } from "./lib/ui";
 import { StoreProvider, useActions, useData, useNav } from "./state/store";
+import { usePinActions } from "./state/pinActions";
 import { ConfirmProvider } from "./components/overlay";
 import { SIDEBAR_ORDER, Sidebar } from "./components/Sidebar";
 import { CommandPalette } from "./components/CommandPalette";
@@ -19,6 +20,8 @@ import { InstallSheet } from "./views/InstallSheet";
 import { Onboarding } from "./views/Onboarding";
 import { MySkillsView } from "./views/MySkills";
 import { NewSkillSheet } from "./views/NewSkillSheet";
+import { ProjectsView } from "./views/Projects";
+import { PinSheet } from "./views/PinSheet";
 
 export default function App() {
   return (
@@ -54,7 +57,12 @@ function Shell() {
   const { nav, go, openInstall, setPaletteOpen, paletteOpen, install, setNewSkillOpen } = useNav();
   const { rescan } = useActions();
   const { loadError, inventory } = useData();
+  const { addProject } = usePinActions();
   const [dragging, setDragging] = useState(false);
+  // Dropping a folder means "add this project" in Projects and "install this" everywhere else.
+  const forProjects = nav.view === "projects";
+  const dropMode = useRef({ forProjects, addProject });
+  dropMode.current = { forProjects, addProject };
 
   // Global shortcuts
   useEffect(() => {
@@ -104,7 +112,11 @@ function Shell() {
     () =>
       onFileDrop({
         over: setDragging,
-        drop: (paths) => openInstall({ input: paths[0], autoResolve: true }),
+        drop: (paths) => {
+          const { forProjects, addProject } = dropMode.current;
+          if (forProjects) void addProject(paths[0]);
+          else openInstall({ input: paths[0], autoResolve: true });
+        },
       }),
     [openInstall],
   );
@@ -128,21 +140,27 @@ function Shell() {
             {nav.view === "updates" && <UpdatesView />}
             {nav.view === "discover" && <DiscoverView />}
             {nav.view === "health" && <HealthView />}
+            {nav.view === "projects" && <ProjectsView />}
             {nav.view === "settings" && <SettingsView />}
           </div>
         )}
         {dragging && !install.open && (
           <div className="anim-fade pointer-events-none absolute inset-3 z-40 flex items-center justify-center rounded-[12px] border-[3px] border-accent bg-[color-mix(in_srgb,var(--q-surface)_90%,transparent)]">
             <div className="text-center">
-              <FileArchive size={28} strokeWidth={1.4} className="mx-auto text-fg-3" />
-              <div className="mt-2 text-[15px] font-semibold">Drop to Install</div>
-              <div className="text-[12px] text-fg-2">A skill folder, a folder of skills, or a .zip</div>
+              {forProjects ? (
+                <FolderGit2 size={28} strokeWidth={1.4} className="mx-auto text-fg-3" />
+              ) : (
+                <FileArchive size={28} strokeWidth={1.4} className="mx-auto text-fg-3" />
+              )}
+              <div className="mt-2 text-[15px] font-semibold">{forProjects ? "Drop to Add Project" : "Drop to Install"}</div>
+              <div className="text-[12px] text-fg-2">{forProjects ? "A project folder, to pin skills to" : "A skill folder, a folder of skills, or a .zip"}</div>
             </div>
           </div>
         )}
       </main>
       <InstallSheet />
       <NewSkillSheet />
+      <PinSheet />
       <CommandPalette />
       <Onboarding />
     </div>

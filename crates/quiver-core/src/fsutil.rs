@@ -154,6 +154,30 @@ pub fn symlink_dir(target: &Path, link: &Path) -> Result<()> {
     }
 }
 
+/// Create the directory link `link` → `target` as a real symlink with a RELATIVE
+/// target on every platform. Unlike [`symlink_dir`] this never makes a junction:
+/// junctions hold absolute paths and can't be committed to git. On Windows it
+/// needs Developer Mode or admin rights; callers fall back to copying there.
+pub fn symlink_dir_relative(target: &Path, link: &Path) -> Result<()> {
+    #[cfg(unix)]
+    {
+        symlink_dir(target, link)
+    }
+    #[cfg(windows)]
+    {
+        let parent = link.parent().context("link has no parent")?;
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("creating {}", parent.display()))?;
+        let target_real = match (target.parent(), target.file_name()) {
+            (Some(tp), Some(name)) => normalize(tp).join(name),
+            _ => target.to_path_buf(),
+        };
+        let rel = relative(&normalize(parent), &target_real);
+        std::os::windows::fs::symlink_dir(&rel, link)
+            .with_context(|| format!("linking {} -> {}", link.display(), rel.display()))
+    }
+}
+
 /// Link `dest` to `src`, or, on Windows when no kind of directory link can be
 /// created there, copy the folder instead so the agent still sees the skill.
 /// Used for agent folders; never for the canonical store.
@@ -287,8 +311,14 @@ pub fn trash(path: &Path, backup_root: &Path) -> Result<()> {
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_else(|| "item".into());
-    let dest = backup_root.join(format!("{stamp}-{name}"));
     std::fs::create_dir_all(backup_root)?;
+    // Two items of the same name trashed within a millisecond must not merge.
+    let mut dest = backup_root.join(format!("{stamp}-{name}"));
+    let mut n = 1;
+    while std::fs::symlink_metadata(&dest).is_ok() {
+        dest = backup_root.join(format!("{stamp}-{n}-{name}"));
+        n += 1;
+    }
     move_path(path, &dest)
 }
 
