@@ -1,0 +1,644 @@
+@import "tailwindcss";
+
+/* ── Design tokens ─────────────────────────────────────────────────────────── */
+/*
+ * Native macOS palette. The accent is the user's system accent color: WKWebView
+ * exposes it as -apple-system-control-accent, newer engines as AccentColor, and a
+ * plain browser falls back to macOS's default blue. Everything tinted (selection,
+ * focus rings, soft fills) is derived from it with color-mix().
+ */
+
+:root {
+  color-scheme: light dark;
+
+  --q-accent: #007aff;
+
+  --q-window-bg: #ececec;
+  --q-surface: #ffffff;
+  --q-surface-2: #f6f6f6;
+  --q-surface-3: #ececec;
+  --q-elevated: #ffffff;
+  --q-menu: rgba(246, 246, 246, 0.94);
+  --q-fg: #1d1d1f;
+  --q-fg-2: #6e6e73;
+  --q-fg-3: #a1a1a6;
+  --q-line: rgba(0, 0, 0, 0.1);
+  --q-line-2: rgba(0, 0, 0, 0.16);
+  --q-hover: rgba(0, 0, 0, 0.045);
+  --q-row-hover: rgba(0, 0, 0, 0.03);
+  --q-press: rgba(0, 0, 0, 0.085);
+  --q-zebra: #f5f5f5;
+  --q-control: #ffffff;
+  --q-control-border: rgba(0, 0, 0, 0.13);
+  --q-control-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.12);
+  --q-field: #ffffff;
+  --q-track: rgba(0, 0, 0, 0.09);
+  --q-sel-inactive: #dcdcdc;
+  --q-sidebar-sel: rgba(0, 0, 0, 0.085);
+  --q-sidebar-fallback: #e7e7e7;
+
+  --q-green: #1f9f44;
+  --q-amber: #d27a00;
+  --q-red: #e0382e;
+  --q-blue: var(--q-accent);
+  --q-glyph-amber: #f29f05;
+
+  --q-shadow-pop: 0 0 0 0.5px rgba(0, 0, 0, 0.16), 0 8px 26px -4px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.06);
+  --q-shadow-sheet: 0 0 0 0.5px rgba(0, 0, 0, 0.18), 0 22px 60px -10px rgba(0, 0, 0, 0.32), 0 3px 10px rgba(0, 0, 0, 0.08);
+  --q-overlay: rgba(0, 0, 0, 0.12);
+
+  /* Library grid: white cards on a soft gray canvas (grouped style). */
+  --q-canvas: #f5f5f7;
+  --q-card: #ffffff;
+  --q-card-border: rgba(0, 0, 0, 0.075);
+  --q-card-shadow: 0 0.5px 1.5px rgba(0, 0, 0, 0.05);
+  --q-card-shadow-hover: 0 0 0 0.5px rgba(0, 0, 0, 0.04), 0 8px 22px -8px rgba(0, 0, 0, 0.2);
+  --q-bar: rgba(245, 245, 247, 0.94);
+  --q-tile: linear-gradient(to bottom, #fdfdfd, #e9e9ec);
+  --q-tile-ring: inset 0 0 0 0.5px rgba(0, 0, 0, 0.14);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --q-window-bg: #282828;
+    --q-surface: #1e1e1e;
+    --q-surface-2: #242424;
+    --q-surface-3: #2f2f2f;
+    --q-elevated: #2b2b2b;
+    --q-menu: rgba(40, 40, 40, 0.94);
+    --q-fg: #e9e9eb;
+    --q-fg-2: #9d9da2;
+    --q-fg-3: #66666b;
+    --q-line: rgba(255, 255, 255, 0.09);
+    --q-line-2: rgba(255, 255, 255, 0.15);
+    --q-hover: rgba(255, 255, 255, 0.05);
+    --q-row-hover: rgba(255, 255, 255, 0.03);
+    --q-press: rgba(255, 255, 255, 0.1);
+    --q-zebra: rgba(255, 255, 255, 0.032);
+    --q-control: #5b5b5e;
+    --q-control-border: rgba(255, 255, 255, 0.06);
+    --q-control-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.35), inset 0 0.5px 0 rgba(255, 255, 255, 0.12);
+    --q-field: rgba(255, 255, 255, 0.05);
+    --q-track: rgba(255, 255, 255, 0.14);
+    --q-sel-inactive: #464646;
+    --q-sidebar-sel: rgba(255, 255, 255, 0.1);
+    --q-sidebar-fallback: #2a2a2a;
+
+    --q-green: #30d158;
+    --q-amber: #ff9f0a;
+    --q-red: #ff453a;
+    --q-glyph-amber: #ff9f0a;
+
+    --q-shadow-pop: 0 0 0 0.5px rgba(255, 255, 255, 0.12), 0 10px 30px -4px rgba(0, 0, 0, 0.6), 0 1px 3px rgba(0, 0, 0, 0.3);
+    --q-shadow-sheet: 0 0 0 0.5px rgba(255, 255, 255, 0.13), 0 24px 70px -10px rgba(0, 0, 0, 0.7), 0 3px 12px rgba(0, 0, 0, 0.35);
+    --q-overlay: rgba(0, 0, 0, 0.3);
+
+    --q-canvas: #1e1e1e;
+    --q-card: #2a2a2b;
+    --q-card-border: rgba(255, 255, 255, 0.075);
+    --q-card-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.3);
+    --q-card-shadow-hover: 0 0 0 0.5px rgba(255, 255, 255, 0.04), 0 10px 26px -8px rgba(0, 0, 0, 0.65);
+    --q-bar: rgba(30, 30, 30, 0.94);
+    --q-tile: linear-gradient(to bottom, #5a5a5e, #454549);
+    --q-tile-ring: inset 0 0 0 0.5px rgba(255, 255, 255, 0.12);
+  }
+}
+
+/* The real system accent where the engine exposes it. */
+@supports (color: AccentColor) {
+  html.tauri {
+    --q-accent: AccentColor;
+  }
+}
+@supports (color: -apple-system-control-accent) {
+  :root {
+    --q-accent: -apple-system-control-accent;
+  }
+}
+
+:root {
+  --q-accent-hover: color-mix(in srgb, var(--q-accent) 90%, black);
+  --q-accent-fg: #ffffff;
+  --q-accent-soft: color-mix(in srgb, var(--q-accent) 13%, transparent);
+  --q-accent-text: color-mix(in srgb, var(--q-accent) 88%, black);
+  --q-ring: color-mix(in srgb, var(--q-accent) 55%, transparent);
+  --q-sel: color-mix(in srgb, var(--q-accent) 12%, transparent);
+  --q-sel-strong: var(--q-accent);
+  --q-row-sel: var(--q-accent);
+  --q-row-sel-fg: #ffffff;
+
+  --q-green-soft: color-mix(in srgb, var(--q-green) 13%, transparent);
+  --q-amber-soft: color-mix(in srgb, var(--q-amber) 14%, transparent);
+  --q-red-soft: color-mix(in srgb, var(--q-red) 12%, transparent);
+  --q-blue-soft: var(--q-accent-soft);
+
+  /* presence (Matrix cells, inspector) */
+  --p-linked: var(--q-accent);
+  --p-native: color-mix(in srgb, var(--q-accent) 18%, transparent);
+  --p-native-ring: color-mix(in srgb, var(--q-accent) 70%, transparent);
+  --p-copied: color-mix(in srgb, var(--q-accent) 55%, var(--q-surface));
+  --p-local: var(--q-glyph-amber);
+  --p-foreign: #8e8e93;
+  --p-broken: var(--q-red);
+  --p-plugin: #b8b8bd;
+  --p-absent: rgba(0, 0, 0, 0.06);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --q-accent-text: color-mix(in srgb, var(--q-accent) 78%, white);
+    --q-accent-soft: color-mix(in srgb, var(--q-accent) 22%, transparent);
+    --q-sel: color-mix(in srgb, var(--q-accent) 20%, transparent);
+    --p-plugin: #5a5a5f;
+    --p-absent: rgba(255, 255, 255, 0.07);
+  }
+}
+
+/* Unfocused window: selections go gray, like AppKit's unemphasized selection. */
+html.inactive {
+  --q-row-sel: var(--q-sel-inactive);
+  --q-row-sel-fg: var(--q-fg);
+}
+
+@theme inline {
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, "JetBrains Mono", Consolas, monospace;
+
+  --color-surface: var(--q-surface);
+  --color-surface-2: var(--q-surface-2);
+  --color-surface-3: var(--q-surface-3);
+  --color-elevated: var(--q-elevated);
+  --color-fg: var(--q-fg);
+  --color-fg-2: var(--q-fg-2);
+  --color-fg-3: var(--q-fg-3);
+  --color-line: var(--q-line);
+  --color-line-2: var(--q-line-2);
+  --color-hover: var(--q-hover);
+  --color-row-hover: var(--q-row-hover);
+  --color-row-sel: var(--q-row-sel);
+  --color-press: var(--q-press);
+  --color-sel: var(--q-sel);
+  --color-sel-strong: var(--q-sel-strong);
+  --color-zebra: var(--q-zebra);
+  --color-accent: var(--q-accent);
+  --color-accent-hover: var(--q-accent-hover);
+  --color-accent-fg: var(--q-accent-fg);
+  --color-accent-soft: var(--q-accent-soft);
+  --color-accent-text: var(--q-accent-text);
+  --color-green: var(--q-green);
+  --color-green-soft: var(--q-green-soft);
+  --color-amber: var(--q-amber);
+  --color-amber-soft: var(--q-amber-soft);
+  --color-red: var(--q-red);
+  --color-red-soft: var(--q-red-soft);
+  --color-blue: var(--q-blue);
+  --color-blue-soft: var(--q-blue-soft);
+
+  --shadow-pop: var(--q-shadow-pop);
+  --shadow-sheet: var(--q-shadow-sheet);
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* ── Base ──────────────────────────────────────────────────────────────────── */
+
+html,
+body,
+#root {
+  height: 100%;
+  background: transparent;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.38;
+  letter-spacing: -0.003em;
+  color: var(--q-fg);
+  font-feature-settings: "cv11" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+/* The browser has no native vibrancy: paint a window background. */
+html.browser body {
+  background: var(--q-window-bg);
+}
+
+.selectable,
+.selectable * {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: auto;
+}
+
+@layer base {
+input,
+textarea,
+select,
+button {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: default;
+}
+
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 3px solid var(--q-ring);
+  outline-offset: 0;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--q-accent) 30%, transparent);
+}
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Thin, overlay-ish scrollbars */
+.scroll {
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--q-line-2) transparent;
+}
+.scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.scroll::-webkit-scrollbar-thumb {
+  background: var(--q-line-2);
+  border-radius: 10px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+.scroll::-webkit-scrollbar-track,
+.scroll::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ── Sidebar vibrancy ──────────────────────────────────────────────────────── */
+
+.sidebar {
+  background: transparent;
+}
+html.browser .sidebar {
+  /* No backdrop-filter: there's nothing behind the page to blur, and it causes paint glitches. */
+  background: var(--q-sidebar-fallback);
+}
+
+/* ── Motion ────────────────────────────────────────────────────────────────── */
+
+@keyframes q-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes q-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(-2px);
+  }
+}
+/* Sheets drop down from the top edge of the window, like AppKit sheets. */
+@keyframes q-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(-28px);
+  }
+}
+@keyframes q-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes q-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+}
+@keyframes q-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+@keyframes q-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.anim-fade {
+  animation: q-fade-in 160ms var(--ease-out);
+}
+.anim-pop {
+  animation: q-pop-in 150ms var(--ease-out);
+  transform-origin: var(--origin, top);
+}
+.anim-sheet {
+  animation: q-sheet-in 260ms cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+.anim-slide {
+  animation: q-slide-in 180ms var(--ease-out);
+}
+.skeleton {
+  background: var(--q-surface-3);
+  border-radius: 4px;
+  animation: q-pulse 1.4s ease-in-out infinite;
+}
+.spin {
+  animation: q-spin 0.8s linear infinite;
+}
+
+/* ── Lists ─────────────────────────────────────────────────────────────────── */
+
+.row-sel {
+  background: var(--q-row-sel);
+  color: var(--q-row-sel-fg);
+}
+.row-sel .sel-fg-2,
+.row-sel .text-fg-2,
+.row-sel .text-fg-3 {
+  color: color-mix(in srgb, var(--q-row-sel-fg) 78%, transparent);
+}
+.row-sel .text-accent-text,
+.row-sel .text-amber,
+.row-sel .text-red,
+.row-sel .text-green {
+  color: var(--q-row-sel-fg);
+}
+
+/* ── Library cards ─────────────────────────────────────────────────────────── */
+
+.skill-card {
+  background: var(--q-card);
+  border: 0.5px solid var(--q-card-border);
+  box-shadow: var(--q-card-shadow);
+  transition:
+    transform 180ms var(--ease-out),
+    box-shadow 180ms var(--ease-out);
+}
+.skill-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--q-card-shadow-hover);
+}
+.skill-card:active {
+  transform: translateY(0) scale(0.995);
+}
+.skill-card:focus-visible {
+  outline: 2.5px solid var(--q-accent);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skill-card:hover,
+  .skill-card:active {
+    transform: none;
+  }
+}
+
+/* Translucent sticky section bars over the canvas. */
+.section-bar {
+  background: var(--q-bar);
+  backdrop-filter: saturate(1.8) blur(18px);
+  -webkit-backdrop-filter: saturate(1.8) blur(18px);
+}
+
+/* Offscreen sections skip layout and paint (stress libraries with hundreds of cards). */
+.lazy-section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 600px;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+/* Small caps-free section headers, like Finder's sidebar. */
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--q-fg-3);
+  letter-spacing: 0.01em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Markdown (SKILL.md) ───────────────────────────────────────────────────── */
+
+.md {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--q-fg);
+  overflow-wrap: anywhere;
+}
+.md > :first-child {
+  margin-top: 0;
+}
+.md h1,
+.md h2,
+.md h3,
+.md h4 {
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  margin: 1.5em 0 0.5em;
+}
+.md h1 {
+  font-size: 20px;
+  letter-spacing: -0.015em;
+}
+.md h2 {
+  font-size: 15px;
+}
+.md h3 {
+  font-size: 13.5px;
+}
+.md h4 {
+  font-size: 13px;
+  color: var(--q-fg-2);
+}
+.md p,
+.md ul,
+.md ol,
+.md pre,
+.md table,
+.md blockquote {
+  margin: 0 0 0.85em;
+}
+.md ul,
+.md ol {
+  padding-left: 1.4em;
+}
+.md ul {
+  list-style: disc;
+}
+.md ol {
+  list-style: decimal;
+}
+.md li {
+  margin: 0.2em 0;
+}
+.md li::marker {
+  color: var(--q-fg-3);
+}
+.md li:has(> input[type="checkbox"]) {
+  list-style: none;
+  margin-left: -1.3em;
+}
+.md input[type="checkbox"] {
+  margin-right: 0.5em;
+  vertical-align: -1px;
+  accent-color: var(--q-accent);
+}
+.md a {
+  color: var(--q-accent-text);
+  text-decoration: none;
+}
+.md a:hover {
+  text-decoration: underline;
+}
+.md strong {
+  font-weight: 600;
+}
+.md code {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  background: var(--q-hover);
+  border-radius: 4px;
+  padding: 0.12em 0.35em;
+}
+.md pre {
+  background: var(--q-surface-2);
+  border: 0.5px solid var(--q-line);
+  border-radius: 6px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  line-height: 1.5;
+}
+.md pre code {
+  background: none;
+  padding: 0;
+  font-size: 11.5px;
+}
+.md blockquote {
+  border-left: 3px solid var(--q-line-2);
+  padding: 2px 0 2px 12px;
+  color: var(--q-fg-2);
+}
+.md table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+  display: block;
+  overflow-x: auto;
+}
+.md th,
+.md td {
+  border: 1px solid var(--q-line);
+  padding: 5px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+.md th {
+  background: var(--q-surface-2);
+  font-weight: 600;
+}
+.md hr {
+  border: 0;
+  border-top: 1px solid var(--q-line);
+  margin: 1.5em 0;
+}
+.md em {
+  font-style: italic;
+}
+
+/* Reader size for the skill sheet: SKILL.md is the hero, so give it book-like type. */
+.md-reader {
+  font-size: 15px;
+  line-height: 1.65;
+  letter-spacing: -0.006em;
+}
+.md-reader h1,
+.md-reader h2,
+.md-reader h3,
+.md-reader h4 {
+  letter-spacing: -0.014em;
+  margin: 1.7em 0 0.55em;
+}
+.md-reader h1 {
+  font-size: 23px;
+  letter-spacing: -0.02em;
+}
+.md-reader h2 {
+  font-size: 19px;
+}
+.md-reader h3 {
+  font-size: 16px;
+}
+.md-reader h4 {
+  font-size: 15px;
+}
+.md-reader p,
+.md-reader ul,
+.md-reader ol,
+.md-reader pre,
+.md-reader blockquote,
+.md-reader .md-table {
+  margin: 0 0 1em;
+}
+.md-reader li {
+  margin: 0.3em 0;
+}
+.md-reader code {
+  font-size: 13px;
+}
+.md-reader pre {
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.md-reader pre code {
+  font-size: 12.5px;
+}
+.md-reader .md-table {
+  overflow-x: auto;
+}
+.md-reader table {
+  display: table;
+  margin: 0;
+  font-size: 13.5px;
+}
+.md-reader th,
+.md-reader td {
+  padding: 7px 11px;
+}
+.md-reader blockquote {
+  border-left-color: color-mix(in srgb, var(--q-accent) 45%, transparent);
+  padding: 2px 0 2px 14px;
+}

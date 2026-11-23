@@ -1,0 +1,32 @@
+[package]
+name = "quiver-core"
+description = "Universal skill manager core for AI coding agents"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml = "0.9"
+sha2 = "0.10"
+sha1 = "0.10"
+hex = "0.4"
+walkdir = "2"
+rayon = "1"
+ureq = { version = "2", features = ["json", "tls"] }
+flate2 = "1"
+tar = "0.4"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+trash = "5"
+tempfile = "3"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+keyring = { version = "3", features = ["apple-native"] }
+url = "2"
+
+[dev-dependencies]
+pretty_assertions = "1"

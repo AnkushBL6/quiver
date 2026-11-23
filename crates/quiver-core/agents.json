@@ -1,0 +1,1011 @@
+{
+  "$comment": "Quiver agent registry. Paths: ~ = home, {XDG_CONFIG} = $XDG_CONFIG_HOME or ~/.config, {VAR} = env var override with default. globalDirs[0] is the preferred install dir; others are legacy/alternate dirs that are also scanned. Sourced from vercel-labs/skills v1.7.4 and verified against installed agent binaries (Nov 2026). PRs welcome!",
+  "agents": [
+    {
+      "id": "claude-code",
+      "name": "Claude Code",
+      "globalDirs": [
+        "~/.claude/skills"
+      ],
+      "detect": [
+        "~/.claude"
+      ],
+      "projectDir": ".claude/skills",
+      "tier": 1,
+      "detectBins": [
+        "claude"
+      ],
+      "apps": [
+        "Claude.app"
+      ]
+    },
+    {
+      "id": "codex",
+      "name": "Codex",
+      "globalDirs": [
+        "~/.agents/skills"
+      ],
+      "detect": [
+        "{CODEX_HOME}",
+        "/etc/codex"
+      ],
+      "projectDir": ".agents/skills",
+      "readDirs": [
+        "{CODEX_HOME}/skills"
+      ],
+      "note": "Codex reads ~/.agents/skills (user) and $CODEX_HOME/skills (legacy).",
+      "tier": 1,
+      "detectBins": [
+        "codex"
+      ],
+      "apps": [
+        "Codex.app",
+        "ChatGPT.app"
+      ]
+    },
+    {
+      "id": "antigravity",
+      "name": "Antigravity",
+      "globalDirs": [
+        "~/.gemini/config/skills",
+        "~/.gemini/antigravity/skills",
+        "~/.gemini/antigravity-cli/skills"
+      ],
+      "detect": [
+        "~/.gemini/config",
+        "~/.gemini/antigravity",
+        "~/.gemini/antigravity-cli",
+        "/Applications/Antigravity.app"
+      ],
+      "projectDir": ".agents/skills",
+      "note": "Antigravity 2.x app and agy CLI read ~/.gemini/config/skills; older builds used ~/.gemini/antigravity/skills.",
+      "tier": 1,
+      "detectBins": [
+        "agy"
+      ],
+      "apps": [
+        "Antigravity.app"
+      ]
+    },
+    {
+      "id": "cursor",
+      "name": "Cursor",
+      "globalDirs": [
+        "~/.cursor/skills"
+      ],
+      "detect": [
+        "~/.cursor",
+        "/Applications/Cursor.app"
+      ],
+      "projectDir": ".agents/skills",
+      "tier": 1,
+      "detectBins": [
+        "cursor-agent"
+      ],
+      "apps": [
+        "Cursor.app"
+      ]
+    },
+    {
+      "id": "gemini-cli",
+      "name": "Gemini CLI",
+      "globalDirs": [
+        "~/.gemini/skills"
+      ],
+      "detect": [
+        "~/.gemini/skills"
+      ],
+      "projectDir": ".agents/skills",
+      "tier": 1,
+      "detectBins": [
+        "gemini"
+      ]
+    },
+    {
+      "id": "github-copilot",
+      "name": "GitHub Copilot",
+      "globalDirs": [
+        "~/.copilot/skills"
+      ],
+      "detect": [
+        "~/.copilot"
+      ],
+      "projectDir": ".agents/skills",
+      "tier": 1,
+      "detectBins": [
+        "copilot"
+      ],
+      "apps": [
+        "Visual Studio Code.app",
+        "Visual Studio Code - Insiders.app"
+      ]
+    },
+    {
+      "id": "opencode",
+      "name": "OpenCode",
+      "globalDirs": [
+        "{XDG_CONFIG}/opencode/skills"
+      ],
+      "detect": [
+        "{XDG_CONFIG}/opencode"
+      ],
+      "projectDir": ".agents/skills",
+      "tier": 2,
+      "detectBins": [
+        "opencode"
+      ],
+      "apps": [
+        "OpenCode.app"
+      ]
+    },
+    {
+      "id": "windsurf",
+      "name": "Windsurf",
+      "globalDirs": [
+        "~/.codeium/windsurf/skills"
+      ],
+      "detect": [
+        "~/.codeium/windsurf",
+        "/Applications/Windsurf.app"
+      ],
+      "projectDir": ".windsurf/skills",
+      "tier": 2,
+      "apps": [
+        "Windsurf.app"
+      ]
+    },
+    {
+      "id": "droid",
+      "name": "Droid",
+      "globalDirs": [
+        "~/.factory/skills"
+      ],
+      "detect": [
+        "~/.factory"
+      ],
+      "projectDir": ".agents/skills",
+      "tier": 2,
+      "detectBins": [
+        "droid"
+      ],
+      "apps": [
+        "Factory.app"
+      ]
+    },
+    {
+      "id": "amp",
+      "name": "Amp",
+      "globalDirs": [
+        "{XDG_CONFIG}/agents/skills"
+      ],
+      "detect": [
+        "{XDG_CONFIG}/amp"
+      ],
+      "projectDir": ".agents/skills",
+      "tier": 2,
+      "detectBins": [
+        "amp"
+      ]
+    },
+    {
+      "id": "kiro-cli",
+      "name": "Kiro",
+      "globalDirs": [
+        "~/.kiro/skills"
+      ],
+      "detect": [
+        "~/.kiro",
+        "/Applications/Kiro.app"
+      ],
+      "projectDir": ".kiro/skills",
+      "tier": 2,
+      "detectBins": [
+        "kiro-cli"
+      ],
+      "apps": [
+        "Kiro.app"
+      ]
+    },
+    {
+      "id": "cline",
+      "name": "Cline",
+      "globalDirs": [
+        "~/.agents/skills"
+      ],
+      "detect": [
+        "~/.cline"
+      ],
+      "projectDir": ".agents/skills",
+      "tier": 2,
+      "detectBins": [
+        "cline"
+      ]
+    },
+    {
+      "id": "roo",
+      "name": "Roo Code",
+      "globalDirs": [
+        "~/.roo/skills"
+      ],
+      "detect": [
+        "~/.roo"
+      ],
+      "projectDir": ".roo/skills",
+      "tier": 2
+    },
+    {
+      "id": "kilo",
+      "name": "Kilo Code",
+      "globalDirs": [
+        "~/.kilo/skills"
+      ],
+      "detect": [
+        "~/.kilo",
+        "~/.kilocode"
+      ],
+      "projectDir": ".agents/skills",
+      "tier": 2,
+      "detectBins": [
+        "kilocode"
+      ]
+    },
+    {
+      "id": "continue",
+      "name": "Continue",
+      "globalDirs": [
+        "~/.continue/skills"
+      ],
+      "detect": [
+        "~/.continue"
+      ],
+      "projectDir": ".continue/skills",
+      "tier": 2
+    },
+    {
+      "id": "goose",
+      "name": "Goose",
+      "globalDirs": [
+        "{XDG_CONFIG}/goose/skills"
+      ],
+      "detect": [
+        "{XDG_CONFIG}/goose"
+      ],
+      "projectDir": ".goose/skills",
+      "tier": 2,
+      "detectBins": [
+        "goose"
+      ],
+      "apps": [
+        "Goose.app"
+      ]
+    },
+    {
+      "id": "qwen-code",
+      "name": "Qwen Code",
+      "globalDirs": [
+        "~/.qwen/skills"
+      ],
+      "detect": [
+        "~/.qwen"
+      ],
+      "projectDir": ".qwen/skills",
+      "tier": 2,
+      "detectBins": [
+        "qwen"
+      ]
+    },
+    {
+      "id": "warp",
+      "name": "Warp",
+      "globalDirs": [
+        "~/.agents/skills"
+      ],
+      "detect": [
+        "~/.warp",
+        "/Applications/Warp.app"
+      ],
+      "projectDir": ".agents/skills",
+      "tier": 2,
+      "apps": [
+        "Warp.app"
+      ]
+    },
+    {
+      "id": "zed",
+      "name": "Zed",
+      "globalDirs": [
+        "~/.agents/skills"
+      ],
+      "detect": [
+        "{XDG_CONFIG}/zed",
+        "/Applications/Zed.app"
+      ],
+      "projectDir": ".agents/skills",
+      "tier": 2,
+      "apps": [
+        "Zed.app"
+      ]
+    },
+    {
+      "id": "grok",
+      "name": "Grok Build",
+      "globalDirs": [
+        "{GROK_HOME}/skills"
+      ],
+      "detect": [
+        "{GROK_HOME}"
+      ],
+      "projectDir": ".grok/skills",
+      "tier": 2,
+      "detectBins": [
+        "grok"
+      ]
+    },
+    {
+      "id": "openhands",
+      "name": "OpenHands",
+      "globalDirs": [
+        "~/.openhands/skills"
+      ],
+      "detect": [
+        "~/.openhands"
+      ],
+      "projectDir": ".openhands/skills",
+      "tier": 2,
+      "detectBins": [
+        "openhands"
+      ]
+    },
+    {
+      "id": "junie",
+      "name": "Junie",
+      "globalDirs": [
+        "~/.junie/skills"
+      ],
+      "detect": [
+        "~/.junie"
+      ],
+      "projectDir": ".junie/skills",
+      "tier": 2,
+      "detectBins": [
+        "junie"
+      ]
+    },
+    {
+      "id": "trae",
+      "name": "Trae",
+      "globalDirs": [
+        "~/.trae/skills"
+      ],
+      "detect": [
+        "~/.trae",
+        "~/.trae-cn",
+        "/Applications/Trae.app"
+      ],
+      "projectDir": ".trae/skills",
+      "tier": 2,
+      "apps": [
+        "Trae.app"
+      ]
+    },
+    {
+      "id": "augment",
+      "name": "Augment",
+      "globalDirs": [
+        "~/.augment/skills"
+      ],
+      "detect": [
+        "~/.augment"
+      ],
+      "projectDir": ".augment/skills",
+      "tier": 2,
+      "detectBins": [
+        "auggie"
+      ]
+    },
+    {
+      "id": "crush",
+      "name": "Crush",
+      "globalDirs": [
+        "{XDG_CONFIG}/crush/skills"
+      ],
+      "detect": [
+        "{XDG_CONFIG}/crush"
+      ],
+      "projectDir": ".crush/skills",
+      "tier": 2,
+      "detectBins": [
+        "crush"
+      ]
+    },
+    {
+      "id": "adal",
+      "name": "AdaL",
+      "globalDirs": [
+        "~/.adal/skills"
+      ],
+      "detect": [
+        "~/.adal"
+      ],
+      "projectDir": ".adal/skills",
+      "tier": 3
+    },
+    {
+      "id": "aider-desk",
+      "name": "AiderDesk",
+      "globalDirs": [
+        "~/.aider-desk/skills"
+      ],
+      "detect": [
+        "~/.aider-desk"
+      ],
+      "projectDir": ".aider-desk/skills",
+      "tier": 3
+    },
+    {
+      "id": "astrbot",
+      "name": "AstrBot",
+      "globalDirs": [
+        "~/.astrbot/data/skills"
+      ],
+      "detect": [
+        "~/.astrbot"
+      ],
+      "projectDir": "data/skills",
+      "tier": 3
+    },
+    {
+      "id": "autohand-code",
+      "name": "Autohand Code CLI",
+      "globalDirs": [
+        "{AUTOHAND_HOME}/skills"
+      ],
+      "detect": [
+        "{AUTOHAND_HOME}"
+      ],
+      "projectDir": ".autohand/skills",
+      "tier": 3
+    },
+    {
+      "id": "codestudio",
+      "name": "Code Studio",
+      "globalDirs": [
+        "~/.codestudio/skills"
+      ],
+      "detect": [
+        "~/.codestudio"
+      ],
+      "projectDir": ".codestudio/skills",
+      "tier": 3
+    },
+    {
+      "id": "codearts-agent",
+      "name": "CodeArts Agent",
+      "globalDirs": [
+        "~/.codeartsdoer/skills"
+      ],
+      "detect": [
+        "~/.codeartsdoer"
+      ],
+      "projectDir": ".codeartsdoer/skills",
+      "tier": 3
+    },
+    {
+      "id": "codebuddy",
+      "name": "CodeBuddy",
+      "globalDirs": [
+        "~/.codebuddy/skills"
+      ],
+      "detect": [
+        "~/.codebuddy"
+      ],
+      "projectDir": ".codebuddy/skills",
+      "tier": 3,
+      "apps": [
+        "CodeBuddy.app"
+      ]
+    },
+    {
+      "id": "codemaker",
+      "name": "Codemaker",
+      "globalDirs": [
+        "~/.codemaker/skills"
+      ],
+      "detect": [
+        "~/.codemaker"
+      ],
+      "projectDir": ".codemaker/skills",
+      "tier": 3
+    },
+    {
+      "id": "command-code",
+      "name": "Command Code",
+      "globalDirs": [
+        "~/.commandcode/skills"
+      ],
+      "detect": [
+        "~/.commandcode"
+      ],
+      "projectDir": ".commandcode/skills",
+      "tier": 3
+    },
+    {
+      "id": "cortex",
+      "name": "Cortex Code",
+      "globalDirs": [
+        "~/.snowflake/cortex/skills"
+      ],
+      "detect": [
+        "~/.snowflake/cortex"
+      ],
+      "projectDir": ".cortex/skills",
+      "tier": 3
+    },
+    {
+      "id": "deepagents",
+      "name": "Deep Agents",
+      "globalDirs": [
+        "~/.deepagents/agent/skills"
+      ],
+      "detect": [
+        "~/.deepagents"
+      ],
+      "projectDir": ".agents/skills",
+      "tier": 3
+    },
+    {
+      "id": "devin",
+      "name": "Devin for Terminal",
+      "globalDirs": [
+        "{XDG_CONFIG}/devin/skills"
+      ],
+      "detect": [
+        "{XDG_CONFIG}/devin"
+      ],
+      "projectDir": ".devin/skills",
+      "tier": 3,
+      "apps": [
+        "Devin.app"
+      ]
+    },
+    {
+      "id": "dexto",
+      "name": "Dexto",
+      "globalDirs": [
+        "~/.agents/skills"
+      ],
+      "detect": [
+        "~/.dexto"
+      ],
+      "projectDir": ".agents/skills",
+      "tier": 3
+    },
+    {
+      "id": "firebender",
+      "name": "Firebender",
+      "globalDirs": [
+        "~/.firebender/skills"
+      ],
+      "detect": [
+        "~/.firebender"
+      ],
+      "projectDir": ".agents/skills",
+      "tier": 3
+    },
+    {
+      "id": "forgecode",
+      "name": "ForgeCode",
+      "globalDirs": [
+        "~/.forge/skills"
+      ],
+      "detect": [
+        "~/.forge"
+      ],
+      "projectDir": ".forge/skills",
+      "tier": 3,
+      "detectBins": [
+        "forge"
+      ]
+    },
+    {
+      "id": "fx",
+      "name": "fx",
+      "globalDirs": [
+        "~/.agents/skills"
+      ],
+      "detect": [
+        "~/.fx"
+      ],
+      "projectDir": ".agents/skills",
+      "tier": 3
+    },
+    {
+      "id": "hermes-agent",
+      "name": "Hermes Agent",
+      "globalDirs": [
+        "{HERMES_HOME}/skills"
+      ],
+      "detect": [
+        "{HERMES_HOME}"
+      ],
+      "projectDir": ".hermes/skills",
+      "tier": 3
+    },
+    {
+      "id": "bob",
+      "name": "IBM Bob",
+      "globalDirs": [
+        "~/.bob/skills"
+      ],
+      "detect": [
+        "~/.bob"
+      ],
+      "projectDir": ".bob/skills",
+      "tier": 3
+    },
+    {
+      "id": "iflow-cli",
+      "name": "iFlow CLI",
+      "globalDirs": [
+        "~/.iflow/skills"
+      ],
+      "detect": [
+        "~/.iflow"
+      ],
+      "projectDir": ".iflow/skills",
+      "tier": 3
+    },
+    {
+      "id": "inference-sh",
+      "name": "inference.sh",
+      "globalDirs": [
+        "~/.inferencesh/skills"
+      ],
+      "detect": [
+        "~/.inferencesh"
+      ],
+      "projectDir": ".inferencesh/skills",
+      "tier": 3
+    },
+    {
+      "id": "jazz",
+      "name": "Jazz",
+      "globalDirs": [
+        "~/.jazz/skills"
+      ],
+      "detect": [
+        "~/.jazz"
+      ],
+      "projectDir": ".jazz/skills",
+      "tier": 3
+    },
+    {
+      "id": "kimchi",
+      "name": "Kimchi",
+      "globalDirs": [
+        "{XDG_CONFIG}/kimchi/harness/skills"
+      ],
+      "detect": [
+        "{XDG_CONFIG}/kimchi"
+      ],
+      "projectDir": ".kimchi/skills",
+      "tier": 3
+    },
+    {
+      "id": "kimi-code-cli",
+      "name": "Kimi Code CLI",
+      "globalDirs": [
+        "~/.agents/skills"
+      ],
+      "detect": [
+        "~/.kimi-code",
+        "~/.kimi"
+      ],
+      "projectDir": ".agents/skills",
+      "tier": 3,
+      "detectBins": [
+        "kimi"
+      ]
+    },
+    {
+      "id": "kode",
+      "name": "Kode",
+      "globalDirs": [
+        "~/.kode/skills"
+      ],
+      "detect": [
+        "~/.kode"
+      ],
+      "projectDir": ".kode/skills",
+      "tier": 3
+    },
+    {
+      "id": "lingma",
+      "name": "Lingma",
+      "globalDirs": [
+        "~/.lingma/skills"
+      ],
+      "detect": [
+        "~/.lingma"
+      ],
+      "projectDir": ".lingma/skills",
+      "tier": 3,
+      "apps": [
+        "Lingma.app"
+      ]
+    },
+    {
+      "id": "loaf",
+      "name": "Loaf",
+      "globalDirs": [
+        "~/.agents/skills"
+      ],
+      "detect": [
+        "~/.loaf"
+      ],
+      "projectDir": ".agents/skills",
+      "tier": 3
+    },
+    {
+      "id": "mcpjam",
+      "name": "MCPJam",
+      "globalDirs": [
+        "~/.mcpjam/skills"
+      ],
+      "detect": [
+        "~/.mcpjam"
+      ],
+      "projectDir": ".mcpjam/skills",
+      "tier": 3
+    },
+    {
+      "id": "minimax-code",
+      "name": "MiniMax Code",
+      "globalDirs": [
+        "~/.minimax/skills"
+      ],
+      "detect": [
+        "~/.minimax",
+        "/Applications/MiniMax Code.app"
+      ],
+      "projectDir": ".minimax/skills",
+      "tier": 3,
+      "apps": [
+        "MiniMax Code.app"
+      ]
+    },
+    {
+      "id": "mistral-vibe",
+      "name": "Mistral Vibe",
+      "globalDirs": [
+        "{VIBE_HOME}/skills"
+      ],
+      "detect": [
+        "{VIBE_HOME}"
+      ],
+      "projectDir": ".vibe/skills",
+      "tier": 3,
+      "detectBins": [
+        "vibe"
+      ]
+    },
+    {
+      "id": "moxby",
+      "name": "Moxby",
+      "globalDirs": [
+        "~/.moxby/skills"
+      ],
+      "detect": [
+        "~/.moxby"
+      ],
+      "projectDir": ".moxby/skills",
+      "tier": 3
+    },
+    {
+      "id": "mux",
+      "name": "Mux",
+      "globalDirs": [
+        "~/.mux/skills"
+      ],
+      "detect": [
+        "~/.mux"
+      ],
+      "projectDir": ".mux/skills",
+      "tier": 3
+    },
+    {
+      "id": "neovate",
+      "name": "Neovate",
+      "globalDirs": [
+        "~/.neovate/skills"
+      ],
+      "detect": [
+        "~/.neovate"
+      ],
+      "projectDir": ".neovate/skills",
+      "tier": 3
+    },
+    {
+      "id": "ona",
+      "name": "Ona",
+      "globalDirs": [
+        "~/.ona/skills"
+      ],
+      "detect": [
+        "~/.ona"
+      ],
+      "projectDir": ".ona/skills",
+      "tier": 3
+    },
+    {
+      "id": "openclaw",
+      "name": "OpenClaw",
+      "globalDirs": [
+        "~/.openclaw/skills"
+      ],
+      "detect": [
+        "~/.openclaw",
+        "~/.clawdbot",
+        "~/.moltbot"
+      ],
+      "projectDir": "skills",
+      "tier": 3
+    },
+    {
+      "id": "pi",
+      "name": "Pi",
+      "globalDirs": [
+        "~/.agents/skills"
+      ],
+      "detect": [
+        "~/.pi/agent"
+      ],
+      "projectDir": ".agents/skills",
+      "tier": 3,
+      "detectBins": [
+        "pi"
+      ]
+    },
+    {
+      "id": "pochi",
+      "name": "Pochi",
+      "globalDirs": [
+        "~/.pochi/skills"
+      ],
+      "detect": [
+        "~/.pochi"
+      ],
+      "projectDir": ".pochi/skills",
+      "tier": 3
+    },
+    {
+      "id": "posit-assistant",
+      "name": "Posit Assistant",
+      "globalDirs": [
+        "~/.posit/assistant/skills"
+      ],
+      "detect": [
+        "~/.posit/assistant",
+        "~/.positai"
+      ],
+      "projectDir": ".posit/assistant/skills",
+      "tier": 3
+    },
+    {
+      "id": "qoder",
+      "name": "Qoder",
+      "globalDirs": [
+        "~/.qoder/skills"
+      ],
+      "detect": [
+        "~/.qoder",
+        "~/.qoder-cn"
+      ],
+      "projectDir": ".qoder/skills",
+      "tier": 3,
+      "apps": [
+        "Qoder.app"
+      ]
+    },
+    {
+      "id": "reasonix",
+      "name": "Reasonix",
+      "globalDirs": [
+        "~/.reasonix/skills"
+      ],
+      "detect": [
+        "~/.reasonix"
+      ],
+      "projectDir": ".reasonix/skills",
+      "tier": 3
+    },
+    {
+      "id": "rovodev",
+      "name": "Rovo Dev",
+      "globalDirs": [
+        "~/.rovodev/skills"
+      ],
+      "detect": [
+        "~/.rovodev"
+      ],
+      "projectDir": ".rovodev/skills",
+      "tier": 3
+    },
+    {
+      "id": "sarvam-code",
+      "name": "Sarvam Code",
+      "globalDirs": [
+        "~/.agents/skills"
+      ],
+      "detect": [
+        "{SARVAM_HOME}"
+      ],
+      "projectDir": ".agents/skills",
+      "tier": 3
+    },
+    {
+      "id": "tabnine-cli",
+      "name": "Tabnine CLI",
+      "globalDirs": [
+        "~/.tabnine/agent/skills"
+      ],
+      "detect": [
+        "~/.tabnine"
+      ],
+      "projectDir": ".tabnine/agent/skills",
+      "tier": 3
+    },
+    {
+      "id": "terramind",
+      "name": "Terramind",
+      "globalDirs": [
+        "~/.terramind/skills"
+      ],
+      "detect": [
+        "~/.terramind"
+      ],
+      "projectDir": ".terramind/skills",
+      "tier": 3
+    },
+    {
+      "id": "tinycloud",
+      "name": "Tinycloud",
+      "globalDirs": [
+        "~/.tinycloud/skills"
+      ],
+      "detect": [
+        "~/.tinycloud"
+      ],
+      "projectDir": ".tinycloud/skills",
+      "tier": 3
+    },
+    {
+      "id": "zcode",
+      "name": "ZCode",
+      "globalDirs": [
+        "~/.zcode/skills"
+      ],
+      "detect": [
+        "~/.zcode",
+        "/Applications/ZCode.app"
+      ],
+      "projectDir": ".zcode/skills",
+      "tier": 3,
+      "apps": [
+        "ZCode.app"
+      ]
+    },
+    {
+      "id": "zencoder",
+      "name": "Zencoder / Zenflow",
+      "globalDirs": [
+        "~/.zencoder/skills"
+      ],
+      "detect": [
+        "~/.zencoder"
+      ],
+      "projectDir": ".zencoder/skills",
+      "tier": 3
+    }
+  ]
+}

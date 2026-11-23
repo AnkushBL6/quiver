@@ -1,0 +1,12 @@
+/target
+node_modules/
+app/dist/
+app/src-tauri/gen/
+website/dist/
+website/.astro/
+video/out/
+.DS_Store
+*.log
+.env
+.env.*
+website/public/demo/

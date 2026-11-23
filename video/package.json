@@ -1,0 +1,26 @@
+{
+  "name": "quiver-video",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio",
+    "capture": "node scripts/capture.mjs",
+    "render": "pnpm run render:main && pnpm run render:teaser && pnpm run render:poster && pnpm run render:gif",
+    "render:main": "remotion render src/index.ts Product out/quiver-product.mp4 --codec h264 --crf 18 --pixel-format yuv420p",
+    "render:teaser": "remotion render src/index.ts Teaser out/quiver-teaser.mp4 --codec h264 --crf 18 --pixel-format yuv420p",
+    "render:poster": "remotion still src/index.ts Poster out/quiver-poster.png",
+    "render:gif": "node scripts/gif.mjs"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.545",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "remotion": "4.0.545"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "playwright": "1.65.1",
+    "typescript": "^5.6.0"
+  }
+}

@@ -1,0 +1,20 @@
+[package]
+name = "quiver-cli"
+description = "Command-line interface for Quiver, the universal skill manager for AI coding agents"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "quiver"
+path = "src/main.rs"
+
+[dependencies]
+quiver-core.workspace = true
+anyhow.workspace = true
+serde_json.workspace = true
+serde.workspace = true
+clap = { version = "4", features = ["derive"] }
