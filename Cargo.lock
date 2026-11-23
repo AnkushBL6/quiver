@@ -2875,7 +2875,7 @@ dependencies = [
 
 [[package]]
 name = "quiver-app"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "notify",
@@ -2890,7 +2890,7 @@ dependencies = [
 
 [[package]]
 name = "quiver-cli"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -2903,7 +2903,7 @@ dependencies = [
 
 [[package]]
 name = "quiver-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "chrono",
