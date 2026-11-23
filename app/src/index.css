@@ -241,6 +241,10 @@ html.tauri.win body {
 html.win {
   --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
 }
+/* Tailwind inlines the font list into `.font-sans`, so it needs the override spelled out. */
+html.win .font-sans {
+  font-family: var(--font-sans);
+}
 
 .selectable,
 .selectable * {
