@@ -218,6 +218,7 @@ pub fn now_ms() -> i64 {
 }
 
 // ---------- GitHub token ----------
+// Kept in the OS credential store: the macOS Keychain or Windows Credential Manager.
 
 const KEYCHAIN_SERVICE: &str = "dev.quiver.app";
 const KEYCHAIN_ACCOUNT: &str = "github-token";
@@ -260,17 +261,23 @@ pub fn github_token(env: &Env) -> Option<(String, &'static str)> {
 }
 
 fn gh_cli_token(env: &Env) -> Option<String> {
-    // GUI apps get a minimal PATH, so probe the usual install locations too.
-    let mut candidates: Vec<PathBuf> = vec![
-        "/opt/homebrew/bin/gh".into(),
-        "/usr/local/bin/gh".into(),
-        "/usr/bin/gh".into(),
-    ];
+    // GUI apps get a minimal PATH on macOS, so probe the usual install locations too.
+    let name = if cfg!(windows) { "gh.exe" } else { "gh" };
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    #[cfg(unix)]
+    candidates
+        .extend(["/opt/homebrew/bin/gh", "/usr/local/bin/gh", "/usr/bin/gh"].map(PathBuf::from));
+    #[cfg(windows)]
+    for var in ["ProgramFiles", "ProgramFiles(x86)"] {
+        if let Some(root) = env.var(var) {
+            candidates.push(std::path::Path::new(root).join(r"GitHub CLI\gh.exe"));
+        }
+    }
     if let Some(path) = env.var("PATH") {
-        candidates.extend(std::env::split_paths(path).map(|p| p.join("gh")));
+        candidates.extend(std::env::split_paths(path).map(|p| p.join(name)));
     }
     let gh = candidates.into_iter().find(|p| p.is_file())?;
-    let out = std::process::Command::new(gh)
+    let out = crate::proc::command(gh)
         .args(["auth", "token"])
         .output()
         .ok()?;

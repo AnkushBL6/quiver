@@ -209,7 +209,7 @@ impl Quiver {
                 .is_some_and(|h| skill::folder_hash(&normalize(&dir)).as_ref() != Some(h))
                 || infos.iter().any(|u| &u.id == id && u.locally_modified);
             if modified && !force {
-                report.skipped.push(OpMessage { id: id.clone(), message: "has local edits; update with force to overwrite (old version goes to the Trash)".into() });
+                report.skipped.push(OpMessage { id: id.clone(), message: format!("has local edits; update with force to overwrite (old version goes to the {})", crate::fsutil::TRASH_NAME) });
                 continue;
             }
             if t.live_link || matches!(entry(&dir), Entry::Link { .. }) {

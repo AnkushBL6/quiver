@@ -62,7 +62,7 @@ enum Cmd {
         #[arg(long)]
         from: Option<std::path::PathBuf>,
     },
-    /// Remove a skill everywhere (folders go to the Trash).
+    /// Remove a skill everywhere (folders go to the Trash / Recycle Bin).
     Remove { id: String },
     /// Your own skills (~/Skills): status, commit, push, pull, or adopt one.
     Mine {
@@ -157,7 +157,29 @@ enum MineCmd {
     Pull,
 }
 
+/// Older Windows consoles print ANSI escapes literally unless asked to interpret them.
+#[cfg(windows)]
+fn enable_ansi() {
+    use windows_sys::Win32::System::Console::{
+        ENABLE_VIRTUAL_TERMINAL_PROCESSING, GetConsoleMode, GetStdHandle, STD_ERROR_HANDLE,
+        STD_OUTPUT_HANDLE, SetConsoleMode,
+    };
+    for which in [STD_OUTPUT_HANDLE, STD_ERROR_HANDLE] {
+        // SAFETY: plain Win32 calls on the process's own std handles; failures (no console,
+        // redirected output) are ignored because colour is only used on a terminal.
+        unsafe {
+            let handle = GetStdHandle(which);
+            let mut mode = 0;
+            if GetConsoleMode(handle, &mut mode) != 0 {
+                SetConsoleMode(handle, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+            }
+        }
+    }
+}
+
 fn main() {
+    #[cfg(windows)]
+    enable_ansi();
     if let Err(e) = run() {
         eprintln!("error: {e:#}");
         std::process::exit(1);
@@ -189,7 +211,7 @@ fn run() -> Result<()> {
     let q = match &cli.home {
         Some(h) => {
             std::fs::create_dir_all(h)?;
-            let mut env = Env::isolated(std::fs::canonicalize(h)?);
+            let mut env = Env::isolated(fsutil::canonicalize(h)?);
             env.probe_system = false;
             Quiver::with_env(env)
         }
@@ -385,8 +407,9 @@ fn run() -> Result<()> {
         Cmd::Remove { id } => {
             q.remove(&id)?;
             println!(
-                "{} removed {id} (folders moved to the Trash)",
-                st.green("✓")
+                "{} removed {id} (folders moved to the {})",
+                st.green("✓"),
+                fsutil::TRASH_NAME
             );
         }
         Cmd::New { id, description } => {

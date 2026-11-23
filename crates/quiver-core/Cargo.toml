@@ -25,8 +25,12 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 trash = "5"
 tempfile = "3"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
-keyring = { version = "3", features = ["apple-native"] }
+keyring = { version = "3", features = ["apple-native", "windows-native"] }
+dunce = "1"
 url = "2"
 
 [dev-dependencies]
 pretty_assertions = "1"
+
+[target.'cfg(windows)'.dependencies]
+junction = "1"

@@ -745,22 +745,60 @@ pub fn discover_local(root: &Path) -> Vec<String> {
 }
 
 pub(crate) fn find_git() -> Result<PathBuf> {
-    [
-        "/usr/bin/git",
-        "/opt/homebrew/bin/git",
-        "/usr/local/bin/git",
-    ]
-    .iter()
-    .map(PathBuf::from)
-    .find(|p| p.is_file())
-    .ok_or_else(|| anyhow!("git is not installed (run `xcode-select --install`)"))
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    #[cfg(unix)]
+    candidates.extend(
+        [
+            "/usr/bin/git",
+            "/opt/homebrew/bin/git",
+            "/usr/local/bin/git",
+        ]
+        .map(PathBuf::from),
+    );
+    #[cfg(windows)]
+    {
+        // Git for Windows' installer locations; PATH usually has it too, but a
+        // GUI launched before the install won't see the new PATH yet.
+        for var in ["ProgramFiles", "ProgramFiles(x86)", "ProgramW6432"] {
+            if let Some(root) = std::env::var_os(var) {
+                candidates.push(Path::new(&root).join(r"Git\cmd\git.exe"));
+                candidates.push(Path::new(&root).join(r"Git\bin\git.exe"));
+            }
+        }
+        if let Some(local) = std::env::var_os("LOCALAPPDATA") {
+            candidates.push(Path::new(&local).join(r"Programs\Git\cmd\git.exe"));
+        }
+    }
+    if let Some(path) = std::env::var_os("PATH") {
+        for dir in std::env::split_paths(&path) {
+            candidates.push(dir.join(if cfg!(windows) { "git.exe" } else { "git" }));
+        }
+    }
+    candidates.into_iter().find(|p| p.is_file()).ok_or_else(|| {
+        anyhow!(
+            "git is not installed ({})",
+            if cfg!(windows) {
+                "install Git for Windows from https://git-scm.com/download/win, or run `winget install Git.Git`"
+            } else {
+                "run `xcode-select --install`"
+            }
+        )
+    })
 }
 
 /// Shallow clone; returns the checked-out commit.
 pub fn git_clone(url: &str, git_ref: Option<&str>, dest: &Path) -> Result<String> {
     let git = find_git()?;
-    let mut cmd = std::process::Command::new(&git);
-    cmd.args(["clone", "--depth", "1", "--quiet"]);
+    let mut cmd = crate::proc::command(&git);
+    // No CRLF conversion: skill hashes must match the bytes GitHub has.
+    cmd.args([
+        "clone",
+        "--depth",
+        "1",
+        "--quiet",
+        "-c",
+        "core.autocrlf=false",
+    ]);
     if let Some(r) = git_ref {
         cmd.args(["--branch", r]);
     }
@@ -772,7 +810,7 @@ pub fn git_clone(url: &str, git_ref: Option<&str>, dest: &Path) -> Result<String
             String::from_utf8_lossy(&out.stderr).trim()
         );
     }
-    let rev = std::process::Command::new(&git)
+    let rev = crate::proc::command(&git)
         .arg("-C")
         .arg(dest)
         .args(["rev-parse", "HEAD"])
@@ -783,7 +821,7 @@ pub fn git_clone(url: &str, git_ref: Option<&str>, dest: &Path) -> Result<String
 /// Remote HEAD (or ref) commit without cloning.
 pub fn git_remote_head(url: &str, git_ref: Option<&str>) -> Result<String> {
     let git = find_git()?;
-    let out = std::process::Command::new(git)
+    let out = crate::proc::command(git)
         .args(["ls-remote", url, git_ref.unwrap_or("HEAD")])
         .env("GIT_TERMINAL_PROMPT", "0")
         .output()?;

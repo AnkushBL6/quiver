@@ -1,6 +1,6 @@
 //! End-to-end tests against a fake home directory with several agents.
 
-use quiver_core::fsutil::{Entry, entry};
+use quiver_core::fsutil::{self, Entry, entry};
 use quiver_core::*;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -15,7 +15,8 @@ impl Home {
         // SAFETY: tests in this file all want the same value; set before any threads read it.
         unsafe { std::env::set_var("QUIVER_NO_TRASH", "1") };
         let dir = tempfile::tempdir().unwrap();
-        let root = fs::canonicalize(dir.path()).unwrap();
+        // Canonical form without the `\\?\` prefix Windows' own canonicalize adds.
+        let root = fsutil::canonicalize(dir.path()).unwrap();
         for d in [
             ".claude/skills",
             ".codex",
@@ -30,8 +31,11 @@ impl Home {
     fn q(&self) -> Quiver {
         Quiver::with_env(Env::isolated(&self.root))
     }
+    /// `rel` is written with `/`; the result uses the platform's separators so it
+    /// compares equal to paths the scanner produces.
     fn p(&self, rel: &str) -> PathBuf {
-        self.root.join(rel)
+        rel.split('/')
+            .fold(self.root.clone(), |acc, part| acc.join(part))
     }
     fn skill(&self, rel: &str, name: &str, body: &str) {
         let d = self.p(rel);
@@ -61,6 +65,19 @@ fn is_link(p: &Path) -> bool {
     matches!(entry(p), Entry::Link { resolves: true, .. })
 }
 
+/// A directory link with an absolute target: a symlink on Unix, a junction on
+/// Windows. The target need not exist (that makes a broken link).
+fn link(target: PathBuf, at: PathBuf) {
+    fsutil::symlink_dir_abs(&target, &at).unwrap();
+}
+
+fn git_available() -> bool {
+    std::process::Command::new("git")
+        .arg("--version")
+        .output()
+        .is_ok_and(|o| o.status.success())
+}
+
 #[test]
 fn scan_classifies_everything() {
     let h = Home::new();
@@ -69,7 +86,7 @@ fn scan_classifies_everything() {
     h.skill(".gemini/config/skills/dup", "dup", "A");
     h.skill(".cursor/skills/dup", "dup", "B");
     h.skill(".codex/skills/legacy", "legacy", "x");
-    std::os::unix::fs::symlink(h.p("nowhere"), h.p(".claude/skills/ghost")).unwrap();
+    link(h.p("nowhere"), h.p(".claude/skills/ghost"));
     quiver_core::fsutil::symlink_dir(&h.p(".agents/skills/shared"), &h.p(".claude/skills/shared"))
         .unwrap();
 
@@ -170,7 +187,7 @@ fn adopt_flips_canonical_link_into_agent_dir() {
     // ~/.agents/skills/x -> ~/.claude/skills/x (real), as hand-made setups often do.
     let h = Home::new();
     h.skill(".claude/skills/flip", "flip", "body");
-    std::os::unix::fs::symlink(h.p(".claude/skills/flip"), h.p(".agents/skills/flip")).unwrap();
+    link(h.p(".claude/skills/flip"), h.p(".agents/skills/flip"));
     let q = h.q();
     let inv = q.scan();
     assert_eq!(presence(&inv, "flip", "claude-code"), Presence::Linked);
@@ -183,7 +200,7 @@ fn adopt_flips_canonical_link_into_agent_dir() {
 fn foreign_link_source_stays_live() {
     let h = Home::new();
     h.skill("dev/my-skill", "my-skill", "wip");
-    std::os::unix::fs::symlink(h.p("dev/my-skill"), h.p(".claude/skills/my-skill")).unwrap();
+    link(h.p("dev/my-skill"), h.p(".claude/skills/my-skill"));
     let q = h.q();
     q.adopt("my-skill", None).unwrap();
     // Canonical links to the dev folder instead of copying it.
@@ -249,7 +266,7 @@ fn set_link_on_unmanaged_adopts_first() {
 #[test]
 fn sync_prunes_broken_links_and_adopts() {
     let h = Home::new();
-    std::os::unix::fs::symlink(h.p("gone"), h.p(".cursor/skills/gone")).unwrap();
+    link(h.p("gone"), h.p(".cursor/skills/gone"));
     h.skill(".gemini/config/skills/ag", "ag", "a");
     let q = h.q();
     let plan = q.sync_plan();
@@ -496,7 +513,7 @@ fn make_mine_forks_an_installed_skill() {
 
 #[test]
 fn my_skills_git_workflow() {
-    if !std::path::Path::new("/usr/bin/git").is_file() {
+    if !git_available() {
         return;
     }
     let h = Home::new();
@@ -555,10 +572,13 @@ fn only_enabled_claude_plugins_count() {
             "p",
         );
     }
-    let manifest = format!(
-        r#"{{"version":2,"plugins":{{"on@market":[{{"scope":"user","installPath":"{0}/plugcache/on"}}],"off@market":[{{"scope":"user","installPath":"{0}/plugcache/off"}}]}}}}"#,
-        h.root.display()
-    );
+    // serde_json escapes Windows backslashes in the paths.
+    let install = |p: &str| serde_json::json!([{"scope": "user", "installPath": h.p(&format!("plugcache/{p}"))}]);
+    let manifest = serde_json::json!({
+        "version": 2,
+        "plugins": {"on@market": install("on"), "off@market": install("off")}
+    })
+    .to_string();
     fs::create_dir_all(h.p(".claude/plugins")).unwrap();
     fs::write(h.p(".claude/plugins/installed_plugins.json"), manifest).unwrap();
     fs::write(

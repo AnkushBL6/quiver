@@ -326,6 +326,40 @@ impl Quiver {
         if !self.env.probe_system {
             return vec![];
         }
+        editors::find(&self.env)
+    }
+
+    /// Open a skill folder in the chosen (or first available) editor.
+    pub fn open_in_editor(&self, id: &str) -> Result<()> {
+        let path = normalize(&self.canonical_dir().join(id));
+        let path = if path.is_dir() {
+            path
+        } else {
+            scan_primary(self, id).context("skill not found")?
+        };
+        let editors = self.list_editors();
+        let app = self
+            .settings
+            .editor
+            .as_ref()
+            .and_then(|e| editors.iter().find(|a| &a.name == e))
+            .or_else(|| editors.iter().find(|a| !editors::is_plain_viewer(&a.name)));
+        run(editors::open_command(app, &path)).map(|_| ())
+    }
+}
+
+/// Finding code editors and launching them; the only platform-specific part of "Edit".
+mod editors {
+    use super::*;
+    use crate::env::Env;
+
+    /// Apps that open a single file rather than a folder: never picked by default.
+    pub fn is_plain_viewer(name: &str) -> bool {
+        matches!(name, "TextEdit" | "Xcode" | "Notepad")
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn find(env: &Env) -> Vec<EditorApp> {
         const KNOWN: &[&str] = &[
             "Visual Studio Code",
             "Cursor",
@@ -340,7 +374,7 @@ impl Quiver {
         ];
         let roots = [
             PathBuf::from("/Applications"),
-            self.env.home.join("Applications"),
+            env.home.join("Applications"),
             PathBuf::from("/System/Applications"),
         ];
         KNOWN
@@ -358,35 +392,97 @@ impl Quiver {
             .collect()
     }
 
-    /// Open a skill folder in the chosen (or first available) editor.
-    pub fn open_in_editor(&self, id: &str) -> Result<()> {
-        let path = normalize(&self.canonical_dir().join(id));
-        let path = if path.is_dir() {
-            path
-        } else {
-            scan_primary(self, id).context("skill not found")?
-        };
-        let editors = self.list_editors();
-        let app = self
-            .settings
-            .editor
-            .as_ref()
-            .and_then(|e| editors.iter().find(|a| &a.name == e))
-            .or_else(|| {
-                editors
-                    .iter()
-                    .find(|a| a.name != "TextEdit" && a.name != "Xcode")
-            });
-        let mut cmd = Command::new("/usr/bin/open");
+    #[cfg(target_os = "macos")]
+    pub fn open_command(app: Option<&EditorApp>, folder: &Path) -> Command {
+        let mut cmd = crate::proc::command("/usr/bin/open");
         match app {
             Some(a) => {
-                cmd.arg("-a").arg(&a.path).arg(&path);
+                cmd.arg("-a").arg(&a.path).arg(folder);
             }
             None => {
-                cmd.arg("-t").arg(path.join(skill::SKILL_FILE));
+                cmd.arg("-t").arg(folder.join(skill::SKILL_FILE));
             }
         }
-        run(cmd).map(|_| ())
+        cmd
+    }
+
+    #[cfg(windows)]
+    pub fn find(env: &Env) -> Vec<EditorApp> {
+        // (name, exe path relative to a root). User installs live under
+        // %LOCALAPPDATA%\Programs, machine-wide ones under %ProgramFiles%.
+        const KNOWN: &[(&str, &str)] = &[
+            ("Visual Studio Code", r"Microsoft VS Code\Code.exe"),
+            ("Cursor", r"cursor\Cursor.exe"),
+            ("Zed", r"Zed\Zed.exe"),
+            ("Windsurf", r"Windsurf\Windsurf.exe"),
+            ("Sublime Text", r"Sublime Text\sublime_text.exe"),
+            ("Notepad++", r"Notepad++\notepad++.exe"),
+        ];
+        let mut roots: Vec<PathBuf> = Vec::new();
+        if let Some(l) = env.var("LOCALAPPDATA") {
+            roots.push(Path::new(l).join("Programs"));
+        }
+        for v in ["ProgramFiles", "ProgramFiles(x86)"] {
+            roots.extend(env.var(v).map(PathBuf::from));
+        }
+        let mut out: Vec<EditorApp> = KNOWN
+            .iter()
+            .filter_map(|(name, rel)| {
+                roots
+                    .iter()
+                    .map(|r| r.join(rel))
+                    .find(|p| p.is_file())
+                    .map(|p| EditorApp {
+                        name: (*name).to_string(),
+                        path: p.to_string_lossy().into_owned(),
+                    })
+            })
+            .collect();
+        let root = env.var("SystemRoot").unwrap_or(r"C:\Windows");
+        let notepad = Path::new(root).join(r"System32\notepad.exe");
+        if notepad.is_file() {
+            out.push(EditorApp {
+                name: "Notepad".into(),
+                path: notepad.to_string_lossy().into_owned(),
+            });
+        }
+        out
+    }
+
+    #[cfg(windows)]
+    pub fn open_command(app: Option<&EditorApp>, folder: &Path) -> Command {
+        match app {
+            // Folder-aware editors take the folder; Notepad only takes a file.
+            Some(a) if a.name == "Notepad" => {
+                let mut cmd = crate::proc::command(&a.path);
+                cmd.arg(folder.join(skill::SKILL_FILE));
+                cmd
+            }
+            Some(a) => {
+                let mut cmd = crate::proc::command(&a.path);
+                cmd.arg(folder);
+                cmd
+            }
+            // Whatever is associated with .md files.
+            None => {
+                let mut cmd = crate::proc::command("explorer.exe");
+                cmd.arg(folder.join(skill::SKILL_FILE));
+                cmd
+            }
+        }
+    }
+
+    // Linux isn't a supported target, but the crate builds there (CI, contributors).
+    #[cfg(not(any(target_os = "macos", windows)))]
+    pub fn find(_env: &Env) -> Vec<EditorApp> {
+        vec![]
+    }
+
+    #[cfg(not(any(target_os = "macos", windows)))]
+    pub fn open_command(_app: Option<&EditorApp>, folder: &Path) -> Command {
+        let mut cmd = crate::proc::command("xdg-open");
+        cmd.arg(folder.join(skill::SKILL_FILE));
+        cmd
     }
 }
 
@@ -503,7 +599,7 @@ fn is_repo(dir: &Path) -> bool {
 
 fn git_cmd(dir: &Path) -> Result<Command> {
     let bin = crate::source::find_git()?;
-    let mut cmd = Command::new(bin);
+    let mut cmd = crate::proc::command(bin);
     cmd.arg("-C")
         .arg(dir)
         // Never block on a credential or host-key prompt from a GUI app.
