@@ -35,8 +35,7 @@ function Check([bool]$ok, [string]$what) {
 }
 
 # Runs quiver, echoes its output, returns stdout as one string; fails on a non-zero exit.
-function Quiver-Run {
-  param([Parameter(ValueFromRemainingArguments = $true)][string[]]$QArgs)
+function Quiver-Run([string[]]$QArgs) {
   Write-Host "> quiver $($QArgs -join ' ')"
   $out = (& $Quiver @QArgs 2>&1 | Out-String)
   if ($LASTEXITCODE -ne 0) { throw "quiver $($QArgs -join ' ') exited with $LASTEXITCODE`n$out" }
@@ -45,15 +44,14 @@ function Quiver-Run {
 }
 
 # Runs `quiver ... --json` and parses stdout as JSON.
-function Quiver-Json {
-  param([Parameter(ValueFromRemainingArguments = $true)][string[]]$QArgs)
+function Quiver-Json([string[]]$QArgs) {
   $raw = (& $Quiver @QArgs '--json' 2>$null | Out-String)
   if ($LASTEXITCODE -ne 0) { throw "quiver $($QArgs -join ' ') --json exited with $LASTEXITCODE" }
   return $raw | ConvertFrom-Json
 }
 
 function Presence([string]$skillId, [string]$agentId) {
-  $skills = @(Quiver-Json list)
+  $skills = @(Quiver-Json 'list')
   $skill = $skills | Where-Object { $_.id -eq $skillId } | Select-Object -First 1
   if (-not $skill) { return '<no such skill>' }
   $p = @($skill.presence) | Where-Object { $_.agentId -eq $agentId } | Select-Object -First 1
@@ -85,7 +83,7 @@ New-Item -ItemType Directory -Path $claude, $cursor | Out-Null
 Write-Host "`n== profile: $profileDir"
 
 Write-Host "`n== agents are found under USERPROFILE, with plain paths"
-$agents = @(Quiver-Json agents)
+$agents = @(Quiver-Json 'agents')
 $claudeAgent = $agents | Where-Object { $_.id -eq 'claude-code' }
 $cursorAgent = $agents | Where-Object { $_.id -eq 'cursor' }
 Check ($claudeAgent.detected -eq $true) 'claude-code detected from ~\.claude'
@@ -94,7 +92,7 @@ Check ($claudeAgent.skillsDir -eq $claude) "claude skills dir is $claude (got $(
 Check (-not ($claudeAgent.skillsDir -like '\\?\*')) 'no \\?\ prefix leaks into paths'
 
 Write-Host "`n== create a skill: it syncs to every detected agent"
-Quiver-Run new e2e-skill -d 'End to end check' | Out-Null
+Quiver-Run 'new','e2e-skill','-d','End to end check' | Out-Null
 $skillMd = Join-Path $mine 'e2e-skill\SKILL.md'
 Check (Test-Path -LiteralPath $skillMd) 'the skill lives in the My Skills folder'
 foreach ($dir in $claude, $cursor) {
@@ -112,15 +110,15 @@ Set-Content -LiteralPath (Join-Path $mine 'e2e-skill\extra.md') -Value 'more'
 Check (Test-Path -LiteralPath (Join-Path $claude 'e2e-skill\extra.md')) 'a file added to the source is visible through the agent link'
 
 Write-Host "`n== doctor on a healthy profile"
-$out = Quiver-Run doctor
+$out = Quiver-Run 'doctor'
 Check ($out -match '0 missing link\(s\), 0 broken link\(s\), 0 conflict\(s\)') 'doctor finds nothing to fix'
 
 Write-Host "`n== a missing link is reported and repaired"
 Remove-Link (Join-Path $cursor 'e2e-skill')
 Check (Test-Path -LiteralPath $skillMd) 'removing the link left the source alone'
-$out = Quiver-Run doctor
+$out = Quiver-Run 'doctor'
 Check ($out -match '1 missing link\(s\)') 'doctor reports one missing link'
-Quiver-Run doctor --apply | Out-Null
+Quiver-Run 'doctor','--apply' | Out-Null
 Check ((Link-Type (Join-Path $cursor 'e2e-skill')) -eq 'Junction') 'doctor --apply recreated the junction'
 Check (Test-Path -LiteralPath (Join-Path $cursor 'e2e-skill\SKILL.md')) 'and it resolves'
 
@@ -132,24 +130,24 @@ New-Item -ItemType Junction -Path $ghost -Target $gone | Out-Null
 Remove-Item -LiteralPath $gone -Recurse -Force
 Check ((Link-Type $ghost) -eq 'Junction') 'set up a junction whose target is gone'
 Check ((Presence 'ghost' 'cursor') -eq 'broken') 'quiver reports it as broken'
-$out = Quiver-Run doctor
+$out = Quiver-Run 'doctor'
 Check ($out -match '1 broken link\(s\)') 'doctor reports one broken link'
-Quiver-Run doctor --apply | Out-Null
+Quiver-Run 'doctor','--apply' | Out-Null
 Check (-not (Exists-Entry $ghost)) 'doctor --apply removed the broken junction'
 
 Write-Host "`n== link / unlink one agent"
-Quiver-Run unlink e2e-skill cursor | Out-Null
+Quiver-Run 'unlink','e2e-skill','cursor' | Out-Null
 Check (-not (Exists-Entry (Join-Path $cursor 'e2e-skill'))) 'unlink removed cursor''s junction'
 Check (Test-Path -LiteralPath (Join-Path $claude 'e2e-skill\SKILL.md')) 'claude-code still sees the skill'
 Check (Test-Path -LiteralPath $skillMd) 'the source folder is untouched'
-Quiver-Run link e2e-skill cursor | Out-Null
+Quiver-Run 'link','e2e-skill','cursor' | Out-Null
 Check (Test-Path -LiteralPath (Join-Path $cursor 'e2e-skill\SKILL.md')) 'link restored cursor''s junction'
 
 Write-Host "`n== adopting a real folder from one agent makes it universal"
 $writer = Join-Path $claude 'writer'
 New-Item -ItemType Directory -Path $writer | Out-Null
 Set-Content -LiteralPath (Join-Path $writer 'SKILL.md') -Value "---`nname: writer`ndescription: Hand-made skill`n---`nbody"
-Quiver-Run adopt writer | Out-Null
+Quiver-Run 'adopt','writer' | Out-Null
 Check ((Link-Type (Join-Path $store 'writer')) -eq 'None') 'the folder moved into the store as a real directory'
 Check ((Link-Type (Join-Path $claude 'writer')) -eq 'Junction') 'claude-code has a junction where the folder was'
 Check ((Link-Type (Join-Path $cursor 'writer')) -eq 'Junction') 'cursor got one too'
@@ -160,7 +158,7 @@ $env:QUIVER_WINDOWS_LINKS = 'copy'
 $solo = Join-Path $store 'copy-skill'
 New-Item -ItemType Directory -Path $solo | Out-Null
 Set-Content -LiteralPath (Join-Path $solo 'SKILL.md') -Value "---`nname: copy-skill`ndescription: Copy fallback`n---`nbody"
-Quiver-Run doctor --apply | Out-Null
+Quiver-Run 'doctor','--apply' | Out-Null
 foreach ($dir in $claude, $cursor) {
   $copy = Join-Path $dir 'copy-skill'
   Check ((Link-Type $copy) -eq 'None') "$copy is a real folder, not a link"
@@ -168,11 +166,35 @@ foreach ($dir in $claude, $cursor) {
 }
 Check ((Presence 'copy-skill' 'cursor') -eq 'copied') 'quiver reports cursor as copied'
 Remove-Item Env:QUIVER_WINDOWS_LINKS
-$out = Quiver-Run doctor
+$out = Quiver-Run 'doctor'
 Check ($out -match '0 missing link\(s\), 0 broken link\(s\)') 'copies count as present'
 
+Write-Host "`n== real symlinks are used when that strategy is forced (and permitted)"
+$probeTarget = Join-Path $profileDir 'probe-target'
+$probeLink = Join-Path $profileDir 'probe-link'
+New-Item -ItemType Directory -Path $probeTarget | Out-Null
+$canSymlink = $true
+try { New-Item -ItemType SymbolicLink -Path $probeLink -Target $probeTarget -ErrorAction Stop | Out-Null }
+catch { $canSymlink = $false }
+if ($canSymlink) {
+  Remove-Link $probeLink
+  $env:QUIVER_WINDOWS_LINKS = 'symlink'
+  Quiver-Run 'new','symlinked-skill','-d','Linked with real symlinks' | Out-Null
+  foreach ($dir in $claude, $cursor) {
+    $link = Join-Path $dir 'symlinked-skill'
+    Check ((Link-Type $link) -eq 'SymbolicLink') "$link is a symlink (got $(Link-Type $link))"
+    Check (Test-Path -LiteralPath (Join-Path $link 'SKILL.md')) "$link resolves"
+  }
+  Check ((Presence 'symlinked-skill' 'claude-code') -eq 'linked') 'quiver reports the symlinked skill as linked'
+  $out = Quiver-Run 'doctor'
+  Check ($out -match '0 missing link\(s\), 0 broken link\(s\)') 'doctor is happy with symlinks too'
+  Remove-Item Env:QUIVER_WINDOWS_LINKS
+} else {
+  Write-Host '  skipped: this account may not create symlinks (needs Developer Mode or admin)'
+}
+
 Write-Host "`n== remove"
-Quiver-Run remove e2e-skill | Out-Null
+Quiver-Run 'remove','e2e-skill' | Out-Null
 foreach ($p in (Join-Path $claude 'e2e-skill'), (Join-Path $cursor 'e2e-skill'), (Join-Path $store 'e2e-skill'), (Join-Path $mine 'e2e-skill')) {
   Check (-not (Exists-Entry $p)) "$p is gone"
 }
