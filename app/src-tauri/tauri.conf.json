@@ -39,6 +39,6 @@
     "longDescription": "Quiver installs, syncs and updates Agent Skills across Claude Code, Codex, Antigravity, Cursor, Gemini CLI, Copilot and 60+ other coding agents from one place.",
     "copyright": "© 2026 Quiver contributors. MIT License.",
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
-    "macOS": { "minimumSystemVersion": "12.0" }
+    "macOS": { "minimumSystemVersion": "12.0", "signingIdentity": "-" }
   }
 }

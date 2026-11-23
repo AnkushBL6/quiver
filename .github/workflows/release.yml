@@ -28,16 +28,24 @@ jobs:
           cache-dependency-path: app/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
         working-directory: app
-      # Code signing / notarization activate automatically when these secrets exist.
-      - uses: tauri-apps/tauri-action@v0
+      # Real signing + notarization only when the Apple secrets exist. Without them the app is
+      # ad-hoc signed (tauri.conf "signingIdentity": "-"); empty secret vars would break the bundler.
+      - name: Enable Apple signing if configured
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$APPLE_CERTIFICATE" ]; then echo "No Apple certificate: ad-hoc signing."; exit 0; fi
+          for v in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            if [ -n "${!v}" ]; then printf '%s<<QUIVER_EOF\n%s\nQUIVER_EOF\n' "$v" "${!v}" >> "$GITHUB_ENV"; fi
+          done
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: app
           args: --target universal-apple-darwin
