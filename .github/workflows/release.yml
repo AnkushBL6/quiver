@@ -16,6 +16,8 @@ jobs:
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
       - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-macos
       - uses: pnpm/action-setup@v4
         with:
           version: 11.0.3

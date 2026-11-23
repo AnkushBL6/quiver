@@ -1,0 +1,42 @@
+name: Build app
+
+# Full universal macOS bundle for every change to the app. It doesn't block CI; it gives a
+# downloadable .dmg per commit and keeps the release build cache warm (same shared-key).
+on:
+  push:
+    branches: [main]
+    paths: ["app/**", "crates/**", "Cargo.toml", "Cargo.lock", ".github/workflows/build.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: macOS universal bundle
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-macos
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.0.3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: app
+      - run: pnpm tauri build --target universal-apple-darwin --bundles app,dmg
+        working-directory: app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Quiver-macos-universal
+          path: target/universal-apple-darwin/release/bundle/dmg/*.dmg
