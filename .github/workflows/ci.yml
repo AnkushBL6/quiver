@@ -11,10 +11,11 @@ concurrency:
 
 jobs:
   rust:
-    name: Rust (core + CLI)
+    name: Rust (core + CLI) · ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest]
+        os: [macos-latest, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     env:
       QUIVER_NO_TRASH: "1"
@@ -30,6 +31,14 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo clippy -p quiver-core -p quiver-cli --all-targets -- -D warnings
       - run: cargo test -p quiver-core -p quiver-cli
+      # Run the built CLI against a throwaway USERPROFILE: create a skill, sync it
+      # to two agents, break links on purpose, run doctor, check what is on disk.
+      - name: CLI end-to-end (junction links, doctor, copy fallback)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cargo build -p quiver-cli
+          ./.github/scripts/windows-cli-e2e.ps1 -Quiver "$PWD/target/debug/quiver.exe"
 
   frontend:
     name: Frontend
@@ -76,3 +85,34 @@ jobs:
         with:
           name: Quiver-macos-universal
           path: target/universal-apple-darwin/release/bundle/dmg/*.dmg
+
+  app-windows:
+    name: Windows app bundle (NSIS)
+    runs-on: windows-latest
+    needs: [frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.0.3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: app
+      - run: pnpm tauri build --bundles nsis
+        working-directory: app
+      - name: Check the installer
+        shell: pwsh
+        run: |
+          $installers = Get-ChildItem target/release/bundle/nsis -Filter '*-setup.exe'
+          if (-not $installers) { throw 'no NSIS installer was produced' }
+          $installers | ForEach-Object { Write-Host ("{0}  {1:N1} MB" -f $_.Name, ($_.Length / 1MB)) }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Quiver-windows-x64
+          path: target/release/bundle/nsis/*-setup.exe

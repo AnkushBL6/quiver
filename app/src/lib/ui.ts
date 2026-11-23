@@ -143,6 +143,9 @@ export function validateSkillName(id: string): string | null {
 
 export function tildify(p: string | null | undefined): string {
   if (!p) return "";
+  // Windows: C:\Users\me\.claude\skills → ~/.claude/skills (agents document paths with `/` everywhere).
+  const win = /^[A-Za-z]:[\\/]+Users[\\/]+[^\\/]+/.exec(p);
+  if (win) return "~" + p.slice(win[0].length).replace(/\\/g, "/");
   return p.replace(/^\/Users\/[^/]+/, "~").replace(/^\/home\/[^/]+/, "~");
 }
 
@@ -172,8 +175,43 @@ export function timeAgo(ms: number | null | undefined) {
 
 export const plural = (n: number, one: string, many = one + "s") => `${n} ${n === 1 ? one : many}`;
 
-export const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+// ── platform ─────────────────────────────────────────────────────────────────
+// The look is native macOS; on Windows the window keeps its normal frame and the
+// words and shortcuts follow Windows conventions.
+
+const platformString = typeof navigator !== "undefined" ? navigator.platform || navigator.userAgent : "";
+export const isMac = /Mac|iPhone|iPad/.test(platformString);
+export const isWindows = /Win/.test(platformString);
 export const mod = isMac ? "⌘" : "Ctrl+";
+
+/** "⇧⌘N" on a Mac, "Ctrl+Shift+N" elsewhere. */
+export function shortcut(key: string, opts: { shift?: boolean } = {}) {
+  return isMac ? `${opts.shift ? "⇧" : ""}⌘${key}` : `Ctrl+${opts.shift ? "Shift+" : ""}${key}`;
+}
+
+/** The command modifier is held: ⌘ on a Mac, Ctrl elsewhere (the Windows key is not a modifier here). */
+export const hasMod = (e: { metaKey: boolean; ctrlKey: boolean }) => (isMac ? e.metaKey || e.ctrlKey : e.ctrlKey);
+
+/** "Remove the focused skill": ⌘⌫ on a Mac; Delete (or Ctrl+Backspace) on Windows. */
+export const isRemoveKey = (e: { key: string; metaKey: boolean; ctrlKey: boolean; altKey: boolean; shiftKey: boolean }) =>
+  isMac
+    ? hasMod(e) && e.key === "Backspace"
+    : (e.key === "Delete" && !e.ctrlKey && !e.altKey && !e.shiftKey) || (e.ctrlKey && e.key === "Backspace");
+export const removeHint = isMac ? "⌘⌫" : "Del";
+/** The return key as shown next to a modifier: "⌘↩" / "Ctrl+Enter". */
+export const enterKey = isMac ? "↩" : "Enter";
+
+/** What the OS calls its file manager, trash and secret store. */
+export const fileManager = isWindows ? "File Explorer" : "Finder";
+export const trashName = isWindows ? "Recycle Bin" : "Trash";
+export const secretStore = isWindows ? "Credential Manager" : "Keychain";
+
+/** `dir` + `name` using the separator `dir` already uses (Windows paths come back with `\`). */
+export function joinPath(dirOrNull: string | null | undefined, name: string) {
+  const dir = dirOrNull ?? "";
+  const sep = dir.includes("\\") && !dir.includes("/") ? "\\" : "/";
+  return `${dir.replace(/[\\/]+$/, "")}${sep}${name}`;
+}
 
 /** Keep both ends of long identifiers visible: "react-kubernetes-…-kubernetes-144". */
 export function middleTruncate(s: string, max = 40) {

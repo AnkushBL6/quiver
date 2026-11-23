@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState, type RefObject } from "react";
+import { hasMod } from "./ui";
 
 /** ⌘F / Ctrl+F focuses the given search field. */
 export function useSearchShortcut(ref: RefObject<HTMLInputElement | null>) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "f") {
+      if (hasMod(e) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "f") {
         if (document.querySelector('[role="dialog"]')) return;
         e.preventDefault();
         ref.current?.focus();

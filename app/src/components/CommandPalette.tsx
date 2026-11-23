@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowDownToLine, Compass, CornerDownLeft, FileText, Grid3x3, HeartPulse, Library, Plus, RefreshCw, Search, Settings, SquarePen, User, Users } from "lucide-react";
-import { cx, mod, type View } from "../lib/ui";
+import { cx, mod, shortcut, type View } from "../lib/ui";
 import { useActions, useData, useNav } from "../state/store";
 import { AgentAvatar } from "./identity";
 import { Kbd } from "./ui";
@@ -56,7 +56,7 @@ function Palette({ close }: { close: () => void }) {
     });
     const cmds: Cmd[] = [
       { id: "new", group: "Actions", label: "New Skill…", icon: <SquarePen size={14} />, hint: `${mod}N`, keywords: "create write my own", run: () => setNewSkillOpen(true) },
-      { id: "install", group: "Actions", label: "Install Skill…", icon: <Plus size={14} />, hint: `⇧${mod}N`, keywords: "add github", run: () => openInstall() },
+      { id: "install", group: "Actions", label: "Install Skill…", icon: <Plus size={14} />, hint: shortcut("N", { shift: true }), keywords: "add github", run: () => openInstall() },
       { id: "rescan", group: "Actions", label: "Rescan skill folders", icon: <RefreshCw size={14} />, hint: `${mod}R`, keywords: "refresh reload", run: () => void rescan() },
       { id: "check", group: "Actions", label: "Check for updates", icon: <ArrowDownToLine size={14} />, run: () => { go("updates"); void checkUpdates(true); } },
       { id: "universal", group: "Actions", label: "Make everything universal…", icon: <HeartPulse size={14} />, keywords: "sync adopt health fix", run: () => go("health") },

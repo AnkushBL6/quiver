@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Toaster } from "sonner";
 import { FileArchive } from "lucide-react";
 import { onFileDrop } from "./lib/api";
+import { hasMod } from "./lib/ui";
 import { StoreProvider, useActions, useData, useNav } from "./state/store";
 import { ConfirmProvider } from "./components/overlay";
 import { SIDEBAR_ORDER, Sidebar } from "./components/Sidebar";
@@ -58,8 +59,7 @@ function Shell() {
   // Global shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const m = e.metaKey || e.ctrlKey;
-      if (!m || e.altKey) return;
+      if (!hasMod(e) || e.altKey) return;
       const k = e.key.toLowerCase();
       if (k === "k") {
         e.preventDefault();

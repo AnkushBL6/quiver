@@ -7,6 +7,7 @@ import {
   groupKey,
   matchesFilter,
   mod,
+  shortcut,
   plural,
   problemsOf,
   sourceGroup,
@@ -513,7 +514,7 @@ function AddMenu({ onNew, onInstall }: { onNew: () => void; onInstall: () => voi
         <MenuItem icon={<SquarePen size={13} />} hint={`${mod}N`} onSelect={pick(onNew)}>
           New Skill…
         </MenuItem>
-        <MenuItem icon={<Download size={13} />} hint={`⇧${mod}N`} onSelect={pick(onInstall)}>
+        <MenuItem icon={<Download size={13} />} hint={shortcut("N", { shift: true })} onSelect={pick(onInstall)}>
           Install from GitHub or File…
         </MenuItem>
       </Popover>

@@ -4,7 +4,7 @@
 import { memo, useCallback, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { AlertOctagon, AlertTriangle, ArrowUpCircle, GitFork, Hand, Puzzle, Unlink, User } from "lucide-react";
 import type { Skill } from "../lib/types";
-import { PROBLEM_LABEL, cx, plural, problemsOf, type CoverageNote, type SourceGroup } from "../lib/ui";
+import { PROBLEM_LABEL, cx, isRemoveKey, plural, problemsOf, type CoverageNote, type SourceGroup } from "../lib/ui";
 import { AgentIcon } from "./identity";
 import { Skeleton, Tooltip } from "./ui";
 
@@ -240,14 +240,14 @@ export function GridSkeleton({ count = 9 }: { count?: number }) {
 /**
  * Arrow keys move focus between cards (left/right in reading order, up/down to the
  * nearest card in the row above or below, across sections), Home/End jump to the ends,
- * ⌘⌫ asks to remove the focused skill. Enter and Space are the card button's own click.
+ * ⌘⌫ (Delete on Windows) asks to remove the focused skill. Enter and Space are the card button's own click.
  */
 export function useRovingGrid(container: RefObject<HTMLElement | null>, onDelete?: (id: string) => void) {
   return useCallback(
     (e: KeyboardEvent<HTMLElement>) => {
       const el = e.target as HTMLElement;
       if (!el.matches("[data-card]") || !container.current) return;
-      if ((e.metaKey || e.ctrlKey) && e.key === "Backspace") {
+      if (isRemoveKey(e)) {
         e.preventDefault();
         if (el.dataset.id) onDelete?.(el.dataset.id);
         return;

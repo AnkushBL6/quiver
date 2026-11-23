@@ -3,7 +3,7 @@ import { AlertTriangle, ArrowDown, ArrowUp, ChevronRight, Folder, GitBranch, Git
 import { toast } from "sonner";
 import { api, errorMessage } from "../lib/api";
 import type { GitChange, MySkillsStatus } from "../lib/types";
-import { coverageNote, cx, mod, plural, timeAgo, visibleAgents } from "../lib/ui";
+import { coverageNote, cx, enterKey, fileManager, isWindows, mod, plural, timeAgo, visibleAgents } from "../lib/ui";
 import { effectivePresence, useActions, useData, useNav } from "../state/store";
 import { useSkillActions } from "../state/skillActions";
 import { GitHubMark } from "../components/identity";
@@ -90,8 +90,16 @@ export function MySkillsView() {
             )}
             {!st.gitAvailable ? (
               <Notice icon={<TerminalSquare size={14} />}>
-                Git isn't installed, so changes to {st.displayDir} aren't versioned. Install the Xcode Command Line Tools with{" "}
-                <code className="font-mono text-[11px]">xcode-select --install</code>, then reopen Quiver.
+                Git isn't installed, so changes to {st.displayDir} aren't versioned.{" "}
+                {isWindows ? (
+                  <>
+                    Install Git for Windows with <code className="font-mono text-[11px]">winget install Git.Git</code> (or from git-scm.com), then reopen Quiver.
+                  </>
+                ) : (
+                  <>
+                    Install the Xcode Command Line Tools with <code className="font-mono text-[11px]">xcode-select --install</code>, then reopen Quiver.
+                  </>
+                )}
               </Notice>
             ) : !st.isRepo ? (
               <InitRepo st={st} />
@@ -153,7 +161,7 @@ function RepoBar({ st, onReveal }: { st: MySkillsStatus; onReveal: () => void })
         <div className="flex items-center gap-2">
           <span className="truncate font-semibold">{st.displayDir}</span>
           <button type="button" onClick={onReveal} className="shrink-0 text-[12px] text-accent-text hover:underline">
-            Reveal in Finder
+            Reveal in {fileManager}
           </button>
         </div>
         <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-[11.5px] text-fg-2">
@@ -373,7 +381,7 @@ function Changes({ st }: { st: MySkillsStatus }) {
             <div className="flex items-center justify-end gap-2">
               <span className="mr-auto text-[11px] text-fg-3 tabular-nums">{nothing ? "Nothing selected" : plural(fileCount, "file")}</span>
               <Button type="submit" variant="primary" disabled={!message.trim() || nothing} loading={busy}>
-                Commit <span className="opacity-70">{mod}↩</span>
+                Commit <span className="opacity-70">{mod}{enterKey}</span>
               </Button>
             </div>
           </form>

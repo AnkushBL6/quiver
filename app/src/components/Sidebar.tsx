@@ -1,11 +1,11 @@
 import { ArrowDownCircle, Compass, Grid3x3, HeartPulse, Library, Plus, RefreshCw, Settings, User, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { isTauri } from "../lib/api";
-import { cx, mod, type View } from "../lib/ui";
+import { cx, isWindows, mod, shortcut, type View } from "../lib/ui";
 import { useActions, useData, useNav } from "../state/store";
 import { Badge, Tooltip } from "./ui";
 
-/** Sidebar order defines ⌘1…⌘7. */
+/** Sidebar order defines ⌘1…⌘7 (Ctrl+1…Ctrl+7 on Windows). */
 export const SIDEBAR: { group: string | null; items: { view: View; label: string; icon: ReactNode }[] }[] = [
   {
     group: null,
@@ -58,7 +58,9 @@ export function Sidebar() {
   let n = 0;
   return (
     <aside className="sidebar relative flex h-full w-[208px] shrink-0 flex-col">
-      <div data-tauri-drag-region className="relative h-[52px] shrink-0">
+      {/* Top strip: room for the macOS traffic lights. On Windows the native title bar is
+          already above the window, so only a small gap is left. */}
+      <div data-tauri-drag-region className={cx("relative shrink-0", isTauri && isWindows ? "h-3" : "h-[52px]")}>
         {!isTauri && <FakeTrafficLights />}
       </div>
 
@@ -91,7 +93,7 @@ export function Sidebar() {
       </nav>
 
       <div className="flex flex-col gap-px px-2.5 pb-2">
-        <SidebarItem icon={<Plus size={15} strokeWidth={1.8} />} onClick={() => openInstall()} shortcut={`⇧${mod}N`}>
+        <SidebarItem icon={<Plus size={15} strokeWidth={1.8} />} onClick={() => openInstall()} shortcut={shortcut("N", { shift: true })}>
           Install Skill…
         </SidebarItem>
         <SidebarItem active={nav.view === "settings"} icon={<Settings size={15} strokeWidth={1.8} />} onClick={() => go("settings")} shortcut={`${mod},`}>

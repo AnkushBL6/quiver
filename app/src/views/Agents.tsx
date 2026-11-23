@@ -3,7 +3,7 @@ import { BookOpenCheck, ChevronRight, EyeOff, FolderOpen, Info, Users } from "lu
 import { toast } from "sonner";
 import { api, errorMessage } from "../lib/api";
 import type { AgentInfo, LinkMode } from "../lib/types";
-import { cx, tildify } from "../lib/ui";
+import { cx, fileManager, tildify } from "../lib/ui";
 import { useActions, useData, useNav } from "../state/store";
 import { AgentAvatar } from "../components/identity";
 import { EmptyState, IconButton, Meter, SearchField, Segmented, Skeleton, Switch, Toolbar, ToolbarTitle, Tooltip } from "../components/ui";
@@ -156,7 +156,7 @@ function AgentRow({
           </div>
         </div>
       </button>
-      <IconButton label="Reveal in Finder" onClick={() => void api.reveal(agent.skillsDir).catch((e) => toast.error(errorMessage(e)))}>
+      <IconButton label={`Reveal in ${fileManager}`} onClick={() => void api.reveal(agent.skillsDir).catch((e) => toast.error(errorMessage(e)))}>
         <FolderOpen size={14} strokeWidth={1.8} />
       </IconButton>
       <div className="flex w-[124px] shrink-0 justify-end">
